@@ -19,7 +19,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 ---
 
 ## logging-setup — one-call logger configuration (console + file routing) for a CLI app
-- status: ripe
+- status: promoted (genekit.logging, py-v0.1.0)
 - language: python
 - sightings:
   - remove-the-bloat/src/remove_the_bloat/logging_setup.py — 2026-07-16 — rich console handler plus
@@ -27,10 +27,14 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - Plex/randomNextEpisode.py:15 — 2026-07-16 — `logging.basicConfig` one-liner.
   - TTS/articleReader.py:48-70,204-210 — 2026-07-16 — dedicated usage logger alongside a
     `basicConfig` call.
-- notes: Promotion is planned as Phase 3 (`genekit-shared-library-phase-03.md`). rich must sit
-  behind the `genekit[rich]` extra with a plain-stream fallback when absent. Migrating Plex and TTS
-  onto the promoted module is deliberately deferred — the promotion is not blocked on it, but the
-  consumers registry must record whoever actually pins the tag.
+- notes: Promoted 2026-07-16 as `genekit.logging` (py-v0.1.0). `season` → `scope` throughout; rich
+  sits behind the `genekit[rich]` extra with a silent plain-stream fallback when absent; TTS's
+  dedicated usage logger folded in as `dedicated_file_logger`.
+  - migrate: remove-the-bloat done — `logging_setup.py` is now a re-export shim keeping the
+    `season_*` names, so its call sites were untouched.
+  - migrate: Plex pending — `randomNextEpisode.py:15` still calls `logging.basicConfig` directly.
+  - migrate: TTS pending — `articleReader.py` still hand-rolls `initialize_usage_logger`; it maps
+    onto `dedicated_file_logger("tts_usage", ..., fmt="%(asctime)s | %(message)s")`.
 
 ## tz-helpers — timezone-aware datetime construction and conversion
 - status: candidate
@@ -64,7 +68,9 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   a second repo appears — it needs an independent sighting elsewhere, not a third file in
   `agents-core`. **The relationship to `logging-setup` must be resolved at promotion time**: one
   module with a structured mode, or two modules with a shared core. Do not promote either in a way
-  that prejudges that decision.
+  that prejudges that decision. `genekit.logging` (py-v0.1.0) shipped without a structured mode and
+  without a formatter-injection seam, so the decision remains open — but it is now a *change* to
+  `genekit.logging`, not a greenfield choice.
 
 ## config-loading — file + env-var config discovery and merge
 - status: candidate

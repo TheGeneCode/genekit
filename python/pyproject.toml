@@ -1,6 +1,6 @@
 [project]
 name = "genekit"
-version = "0.0.0"
+version = "0.1.0"
 description = "Personal cross-app shared library (Python). Admission and quality rules: ../CHARTER.md"
 readme = "README.md"
 requires-python = ">=3.12"
