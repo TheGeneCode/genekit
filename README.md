@@ -36,7 +36,7 @@ promoted into more than one language dir. They are never duplicated per language
 ## How Python apps consume it
 
 ```
-uv add "genekit @ git+https://github.com/Geneocide/genekit#subdirectory=python" --tag py-vX.Y.Z
+uv add "genekit @ git+https://github.com/TheGeneCode/genekit#subdirectory=python" --tag py-vX.Y.Z
 ```
 
 which produces in the consumer's `pyproject.toml`:
@@ -46,7 +46,7 @@ which produces in the consumer's `pyproject.toml`:
 dependencies = ["genekit"]
 
 [tool.uv.sources]
-genekit = { git = "https://github.com/Geneocide/genekit", subdirectory = "python", tag = "py-vX.Y.Z" }
+genekit = { git = "https://github.com/TheGeneCode/genekit", subdirectory = "python", tag = "py-vX.Y.Z" }
 ```
 
 Consumers pin **tags only — never a branch**. A branch pin means an unrelated push to `master` can
