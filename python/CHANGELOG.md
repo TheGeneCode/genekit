@@ -1,5 +1,22 @@
 # Changelog (python package — tags py-vX.Y.Z)
 
+## py-v0.2.0 — 2026-07-17
+
+### Added
+- `genekit.logging` — optional size-based file rotation. `configure_logging` and `add_file_handler`
+  gained keyword-only `rotate_bytes` / `backup_count`: when both are positive the file handler is a
+  `logging.handlers.RotatingFileHandler` (rolls over at `rotate_bytes`, keeps `backup_count`
+  backups); the defaults (`0`, `0`) preserve the prior unbounded `FileHandler` exactly, so this is a
+  backwards-compatible minor release — no consumer action required.
+  - Rotation is all-or-nothing: exactly one of `rotate_bytes` / `backup_count` being positive is
+    rejected with `ValueError`. `backup_count=0` with a positive `rotate_bytes` cannot bound the
+    file (the stdlib handler reopens it in append mode on rollover), so it is refused rather than
+    silently growing without limit.
+  - Rotation is single-process only; the docstring warns against pointing two processes at one
+    rotating file (their rollover renames race — `PermissionError` on Windows).
+  - Motivated by adopting the personal-agents price-tracker daemon, whose hand-rolled
+    `RotatingFileHandler(maxBytes=5MB, backupCount=3)` had no library home.
+
 ## py-v0.1.0 — 2026-07-16
 
 ### Added

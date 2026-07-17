@@ -5,6 +5,7 @@ import logging
 import re
 import threading
 from contextvars import copy_context
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from genekit.logging import (
     VERBOSE_DATEFMT,
     VERBOSE_FMT,
     _ScopeFilter,
+    _validate_rotation,
     add_file_handler,
     add_scoped_file_handler,
     configure_logging,
@@ -362,3 +364,186 @@ def test_two_dedicated_loggers_same_path_write_independently(tmp_path):
     contents = _read(log_file)
     assert "from-x" in contents
     assert "from-y" in contents
+
+
+# --- Rotation --------------------------------------------------------------------------------
+
+
+def _root_file_handler() -> logging.Handler:
+    file_handlers = [
+        h for h in logging.getLogger().handlers if isinstance(h, logging.FileHandler)
+    ]
+    assert len(file_handlers) == 1
+    return file_handlers[0]
+
+
+def test_configure_logging_default_is_plain_file_not_rotating(tmp_path):
+    """Default rotate_bytes=0 keeps the pre-existing plain FileHandler — no behaviour change."""
+    configure_logging(console="none", log_file=tmp_path / "run.log")
+    handler = _root_file_handler()
+    assert type(handler) is logging.FileHandler
+    assert not isinstance(handler, RotatingFileHandler)
+
+
+def test_configure_logging_rotating_handler_wired(tmp_path):
+    configure_logging(
+        console="none", log_file=tmp_path / "run.log", rotate_bytes=1024, backup_count=3
+    )
+    handler = _root_file_handler()
+    assert isinstance(handler, RotatingFileHandler)
+    assert handler.maxBytes == 1024
+    assert handler.backupCount == 3
+
+
+def test_configure_logging_rotation_actually_rolls_over(tmp_path):
+    log_file = tmp_path / "run.log"
+    configure_logging(console="none", log_file=log_file, rotate_bytes=512, backup_count=2)
+    logger = get_logger("rot-demo")
+    for i in range(200):
+        logger.info(f"line {i} padded to force the file past the 512-byte rollover threshold")
+    assert log_file.exists()
+    assert (tmp_path / "run.log.1").exists()  # at least one backup produced
+    backups = list(tmp_path.glob("run.log.*"))
+    assert len(backups) <= 2  # backup_count caps retained backups
+
+
+def test_configure_logging_negative_rotate_bytes_raises(tmp_path):
+    with pytest.raises(ValueError, match="rotate_bytes must be >= 0"):
+        configure_logging(console="none", log_file=tmp_path / "run.log", rotate_bytes=-1)
+
+
+def test_configure_logging_negative_backup_count_raises(tmp_path):
+    with pytest.raises(ValueError, match="backup_count must be >= 0"):
+        configure_logging(
+            console="none", log_file=tmp_path / "run.log", rotate_bytes=1024, backup_count=-1
+        )
+
+
+def test_configure_logging_backup_count_without_rotate_bytes_raises(tmp_path):
+    with pytest.raises(ValueError, match="backup_count > 0 requires rotate_bytes"):
+        configure_logging(console="none", log_file=tmp_path / "run.log", backup_count=3)
+
+
+def test_configure_logging_rotate_bytes_without_log_file_raises():
+    with pytest.raises(ValueError, match="rotate_bytes > 0 requires log_file"):
+        configure_logging(console="plain", rotate_bytes=1024, backup_count=3)
+
+
+def test_configure_logging_rotate_bytes_positive_backup_zero_raises(tmp_path):
+    """rotate_bytes>0 with backup_count=0 cannot bound the file (stdlib reopens in append mode),
+    so it is rejected rather than silently growing unbounded."""
+    with pytest.raises(ValueError, match="rotate_bytes > 0 requires backup_count"):
+        configure_logging(
+            console="none", log_file=tmp_path / "run.log", rotate_bytes=256, backup_count=0
+        )
+
+
+def test_add_file_handler_rotating(tmp_path):
+    configure_logging(console="plain")
+    log_file = tmp_path / "extra.log"
+    handler = add_file_handler(log_file, rotate_bytes=2048, backup_count=1)
+    assert isinstance(handler, RotatingFileHandler)
+    assert handler.maxBytes == 2048
+    assert handler.backupCount == 1
+
+
+def test_add_file_handler_backup_count_without_rotate_bytes_raises(tmp_path):
+    with pytest.raises(ValueError, match="backup_count > 0 requires rotate_bytes"):
+        add_file_handler(tmp_path / "x.log", backup_count=2)
+
+
+def test_add_file_handler_negative_rotate_bytes_raises(tmp_path):
+    """Matrix cell distinct from configure_logging's own negative-value tests: add_file_handler
+    has its own call site into _validate_rotation and needs its own coverage."""
+    with pytest.raises(ValueError, match="rotate_bytes must be >= 0"):
+        add_file_handler(tmp_path / "x.log", rotate_bytes=-1)
+
+
+def test_add_file_handler_negative_backup_count_raises(tmp_path):
+    with pytest.raises(ValueError, match="backup_count must be >= 0"):
+        add_file_handler(tmp_path / "x.log", rotate_bytes=10, backup_count=-1)
+
+
+def test_rotate_bytes_smaller_than_single_message_still_written(tmp_path):
+    """rotate_bytes smaller than one message's rendered size must still land the message, not
+    drop or corrupt it -- shouldRollover fires against an empty file before the first write
+    completes."""
+    log_file = tmp_path / "run.log"
+    configure_logging(console="none", log_file=log_file, rotate_bytes=1, backup_count=1)
+    get_logger("tiny-threshold-demo").info("this single message exceeds the 1-byte threshold")
+    assert "this single message exceeds the 1-byte threshold" in _read(log_file)
+
+
+def test_add_file_handler_rotate_bytes_positive_backup_zero_raises(tmp_path):
+    """The reject-half-configured-rotation rule holds through add_file_handler's own call site."""
+    with pytest.raises(ValueError, match="rotate_bytes > 0 requires backup_count"):
+        add_file_handler(tmp_path / "x.log", rotate_bytes=256, backup_count=0)
+
+
+def test_concurrent_writes_trigger_rotation_no_message_loss(tmp_path):
+    """Race-condition matrix cell for the rotation path specifically (existing concurrency tests
+    only cover scope routing, not rollover). stdlib Handler.emit is guarded by a lock shared
+    across shouldRollover/doRollover/emit, so concurrent same-process writers should neither lose
+    nor corrupt messages across a rollover boundary.
+
+    backup_count is sized generously above what 400 short messages need (~23KB of text against
+    ~43KB of retained capacity) so every message should still be retained somewhere across the
+    base file + backups; this isolates "did locking lose/corrupt a message" from "did retention
+    legitimately evict it", which a smaller backup_count would conflate.
+    """
+    log_file = tmp_path / "run.log"
+    configure_logging(console="none", log_file=log_file, rotate_bytes=2048, backup_count=20)
+    logger = get_logger("concurrent-rot-demo")
+    n_threads = 4
+    n_msgs = 100
+    barrier = threading.Barrier(n_threads)
+
+    def worker(tid: int) -> None:
+        barrier.wait()
+        for i in range(n_msgs):
+            logger.info(f"t{tid}-m{i}")
+
+    threads = [threading.Thread(target=worker, args=(tid,)) for tid in range(n_threads)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    all_text = log_file.read_text(encoding="utf-8")
+    for path in tmp_path.glob("run.log.*"):
+        all_text += path.read_text(encoding="utf-8")
+    for tid in range(n_threads):
+        for i in range(n_msgs):
+            assert f"t{tid}-m{i}" in all_text
+
+
+@pytest.mark.parametrize(
+    ("rotate_bytes", "backup_count"),
+    [(0, 0), (1, 1), (1024, 5), (999_999_999, 100)],
+)
+def test_validate_rotation_accepts_valid_combos(rotate_bytes, backup_count):
+    assert _validate_rotation(rotate_bytes, backup_count) is None
+
+
+def _rotation_is_valid(rotate_bytes: int, backup_count: int) -> bool:
+    """Independent spec oracle: rotation is coherent iff both bounds are non-negative and the two
+    knobs agree on whether rotation is on (both positive) or off (both zero). Deliberately phrased
+    as one boolean expression, not as a copy of the implementation's sequential branches, so a
+    shared conceptual slip in the rule cannot pass through both."""
+    both_nonnegative = rotate_bytes >= 0 and backup_count >= 0
+    rotation_agrees = (rotate_bytes > 0) == (backup_count > 0)
+    return both_nonnegative and rotation_agrees
+
+
+@given(
+    rotate_bytes=st.integers(min_value=-(10**9), max_value=10**9),
+    backup_count=st.integers(min_value=-(10**9), max_value=10**9),
+)
+def test_validate_rotation_property(rotate_bytes, backup_count):
+    """_validate_rotation raises iff the combo is invalid; otherwise returns None."""
+    expected_valid = _rotation_is_valid(rotate_bytes, backup_count)
+    if expected_valid:
+        assert _validate_rotation(rotate_bytes, backup_count) is None
+    else:
+        with pytest.raises(ValueError):
+            _validate_rotation(rotate_bytes, backup_count)

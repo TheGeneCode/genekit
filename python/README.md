@@ -9,7 +9,7 @@ install recipe.
 ## Module inventory
 | Module | Provides | Since |
 |---|---|---|
-| `logging` | opinionated root config (rich/plain/none console on stderr), scoped per-file routing, dedicated file loggers | py-v0.1.0 |
+| `logging` | opinionated root config (rich/plain/none console on stderr), optional size-based file rotation, scoped per-file routing, dedicated file loggers | py-v0.1.0 |
 
 The rich console needs the `rich` extra — `uv add "genekit[rich] @ git+..."`. Without it,
 `console="rich"` degrades silently to a plain stderr handler.
