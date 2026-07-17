@@ -48,11 +48,19 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     columns over the old `"%(asctime)s %(message)s"`; and the `log_exception` fallback now writes to
     `ERROR_LOG_PATH` (env-overridable via `$VID_DL_ERROR_LOG`) instead of a hardcoded relative
     `error_log.txt`, matching what the module-level setup already did.
+  - migrate: personal-agents (price-tracker) done 2026-07-17 at py-v0.2.0 — adopting its daemon
+    logging drove adding optional size-based rotation to `genekit.logging` (`rotate_bytes` /
+    `backup_count` on `configure_logging` + `add_file_handler`; both-or-neither, and `backup_count=0`
+    with a positive `rotate_bytes` is rejected because the stdlib handler reopens the file in append
+    mode on rollover and never bounds it). `run.py` now calls
+    `configure_logging(console="plain", rotate_bytes=5 MB, backup_count=3)` and keeps its app-local
+    `apscheduler`→WARNING cap. No shim — the `_configure_logging` wrapper stayed but its body is a
+    genekit call; the redundant `converter=time.localtime` loop was dropped (stdlib default already
+    is localtime). This was a *change* to the existing module, not a new promotion, so the rule of
+    three did not restart; the full quality gate (hypothesis property tests, qa-boundary-tester
+    review, changelog, annotated tag) still applied.
   - adopt-pending (hand-rolled implementations found 2026-07-17, candidates for `/genekit adopt`):
     - whatToWatch — `logging_config.py` module-level file-only `basicConfig` at import time.
-    - personal-agents — `apps/price-tracker/src/price_tracker/commands/run.py:110-117` builds
-      `RotatingFileHandler` + console handler via `basicConfig`. Note: genekit.logging has no
-      rotation support — adopting price-tracker either adds rotation to the library or drops it.
     - d4lf excluded — external fork (d4lfteam/d4lf), not our code.
 
 ## tz-helpers — timezone-aware datetime construction and conversion

@@ -21,3 +21,4 @@ The rich console needs the `rich` extra — `uv add "genekit[rich] @ git+..."`. 
 | `logging` | Plex | py-v0.1.0 |
 | `logging` | TTS | py-v0.1.0 |
 | `logging` | MeadowLark | py-v0.1.0 |
+| `logging` | personal-agents (price-tracker) | py-v0.2.0 |
