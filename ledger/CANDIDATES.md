@@ -38,8 +38,15 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     genekit's `requires-python >=3.12`. Its old `format="%(message)s - %(ex)s"` + `extra={"ex": e}`
     idiom was dropped (genekit owns the format); exceptions now interpolate into the message. That
     format was latently broken anyway — any record not passing `ex` would raise at format time.
-  - migrate: TTS pending — `articleReader.py` still hand-rolls `initialize_usage_logger`; it maps
-    onto `dedicated_file_logger("tts_usage", ..., fmt="%(asctime)s | %(message)s")`.
+  - migrate: TTS done
+  - adopt-pending (hand-rolled implementations found 2026-07-17, candidates for `/genekit adopt`):
+    - MeadowLark — `QYT.py:27` module-level `basicConfig` plus `src/logging_utils.py` lazy
+      `basicConfig`-to-file inside `log_exception`.
+    - whatToWatch — `logging_config.py` module-level file-only `basicConfig` at import time.
+    - personal-agents — `apps/price-tracker/src/price_tracker/commands/run.py:110-117` builds
+      `RotatingFileHandler` + console handler via `basicConfig`. Note: genekit.logging has no
+      rotation support — adopting price-tracker either adds rotation to the library or drops it.
+    - d4lf excluded — external fork (d4lfteam/d4lf), not our code.
 
 ## tz-helpers — timezone-aware datetime construction and conversion
 - status: candidate
@@ -47,9 +54,13 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - sightings:
   - personal-agents/packages/agents-core/src/agents_core/tz.py — 2026-07-16 — battle-tested in
     production use.
+  - remove-the-bloat/src/remove_the_bloat/activity.py:31-45 — 2026-07-17 — hand-rolled
+    Denver-local timestamp helper (`_DENVER = ZoneInfo(...)` + `_timestamp()` construction/format).
 - notes: Extraction would leave a re-export shim in `agents_core` so its existing importers keep
-  working. Needs 2 more independent sightings. Check `zoneinfo` coverage first — per the charter,
-  anything stdlib already does well must not be reimplemented.
+  working. 2 sightings across 2 repos — 1 more needed. MeadowLark's
+  `src/logging_utils.py:get_local_timestamp` (one-line `datetime.now().astimezone().strftime`) is
+  adjacent but too thin to count as an independent solution; revisit if it grows. Check `zoneinfo`
+  coverage first — per the charter, anything stdlib already does well must not be reimplemented.
 
 ## url-helpers — URL normalization and comparison
 - status: candidate
@@ -57,7 +68,13 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - sightings:
   - personal-agents/packages/agents-core/src/agents_core/urls.py — 2026-07-16 — normalization used
     across agent tooling.
-- notes: Needs 2 more independent sightings. `urllib.parse` does the parsing; the admissible part is
+  - personal-agents/apps/price-tracker/src/price_tracker/utils.py:8-18 — 2026-07-17 —
+    `site_label` (hostname extraction + www-strip for display) and `href_safe` (bracket
+    percent-encoding). Same repo as the first sighting — repo count stays 1 of 2.
+- notes: 2 sightings, 1 repo — needs a sighting in a second repo. Surveyed 2026-07-17: MeadowLark
+  `src/url_utils.py` (YouTube video/playlist ID extraction) and job-hunter's
+  `scraper/url_filter.py` (job-board aggregation-path filtering) are app-specific decisions, not
+  generic normalization — not counted. `urllib.parse` does the parsing; the admissible part is
   whatever *decisions* sit on top (which components to strip, how to compare). Name the stdlib gap
   explicitly at promotion time.
 
@@ -86,4 +103,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     agent apps.
 - notes: 2 sightings across 2 repos — one short of ripe. The app-specific file name and env-var
   prefix must become parameters (`rtb.toml` / `$RTB_CONFIG` are exactly the kind of hardcoding the
-  charter forbids). Compare against `tomllib` + `os.environ` before promoting.
+  charter forbids). Compare against `tomllib` + `os.environ` before promoting. Partial match
+  surveyed 2026-07-17: MeadowLark `src/config.py:_resolve_path` is env-var override with hardcoded
+  defaults but no config-file layer — a subset of this capability, not counted as a sighting; if
+  promotion scopes the API to make the file layer optional, recount it.
