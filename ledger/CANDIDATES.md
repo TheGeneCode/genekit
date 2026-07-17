@@ -39,9 +39,16 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     idiom was dropped (genekit owns the format); exceptions now interpolate into the message. That
     format was latently broken anyway — any record not passing `ex` would raise at format time.
   - migrate: TTS done
+  - migrate: MeadowLark done 2026-07-17 — both setup sites now call
+    `configure_logging("ERROR", log_file=ERROR_LOG_PATH, console="none")`; no shim, since the app's
+    `log_exception`/`get_local_timestamp` helpers are app decisions genekit does not cover, so
+    `src/logging_utils.py` stays app code and its ~40 call sites were untouched. Required bumping
+    `requires-python` 3.11 → 3.12 to satisfy genekit (same as Plex; interpreter was already 3.14).
+    Two behavior changes accepted: genekit owns the format, so records gained `levelname`/`name`
+    columns over the old `"%(asctime)s %(message)s"`; and the `log_exception` fallback now writes to
+    `ERROR_LOG_PATH` (env-overridable via `$VID_DL_ERROR_LOG`) instead of a hardcoded relative
+    `error_log.txt`, matching what the module-level setup already did.
   - adopt-pending (hand-rolled implementations found 2026-07-17, candidates for `/genekit adopt`):
-    - MeadowLark — `QYT.py:27` module-level `basicConfig` plus `src/logging_utils.py` lazy
-      `basicConfig`-to-file inside `log_exception`.
     - whatToWatch — `logging_config.py` module-level file-only `basicConfig` at import time.
     - personal-agents — `apps/price-tracker/src/price_tracker/commands/run.py:110-117` builds
       `RotatingFileHandler` + console handler via `basicConfig`. Note: genekit.logging has no
