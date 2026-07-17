@@ -32,7 +32,12 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   dedicated usage logger folded in as `dedicated_file_logger`.
   - migrate: remove-the-bloat done — `logging_setup.py` is now a re-export shim keeping the
     `season_*` names, so its call sites were untouched.
-  - migrate: Plex pending — `randomNextEpisode.py:15` still calls `logging.basicConfig` directly.
+  - migrate: Plex done — `randomNextEpisode.py` now calls `configure_logging(console="plain")` in
+    `main()`. No shim: the app-local implementation was a single `basicConfig` line, so call sites
+    moved to `get_logger` directly. Required bumping Plex from Python 3.10 to 3.13 to satisfy
+    genekit's `requires-python >=3.12`. Its old `format="%(message)s - %(ex)s"` + `extra={"ex": e}`
+    idiom was dropped (genekit owns the format); exceptions now interpolate into the message. That
+    format was latently broken anyway — any record not passing `ex` would raise at format time.
   - migrate: TTS pending — `articleReader.py` still hand-rolls `initialize_usage_logger`; it maps
     onto `dedicated_file_logger("tts_usage", ..., fmt="%(asctime)s | %(message)s")`.
 
