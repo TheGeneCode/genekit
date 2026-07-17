@@ -19,3 +19,4 @@ The rich console needs the `rich` extra — `uv add "genekit[rich] @ git+..."`. 
 |---|---|---|
 | `logging` | remove-the-bloat | py-v0.1.0 |
 | `logging` | Plex | py-v0.1.0 |
+| `logging` | TTS | py-v0.1.0 |
