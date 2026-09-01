@@ -212,7 +212,7 @@ def test_scope_routing_partition_property(events):
 
 
 def test_verbose_fmt_and_datefmt_constants_pinned():
-    """Byte-compatibility contract with the pre-promotion rtb module — must not drift."""
+    """Byte-compatibility contract with the pre-promotion implementation — must not drift."""
     assert VERBOSE_FMT == "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
     assert VERBOSE_DATEFMT == "%Y-%m-%d %H:%M:%S"
 

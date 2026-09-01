@@ -4,3 +4,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 dist/
+
+# Local planning notes; machine- and app-specific, not for publication.
+docs/

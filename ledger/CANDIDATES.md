@@ -35,19 +35,18 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - migrate: Plex done — `randomNextEpisode.py` now calls `configure_logging(console="plain")` in
     `main()`. No shim: the app-local implementation was a single `basicConfig` line, so call sites
     moved to `get_logger` directly. Required bumping Plex from Python 3.10 to 3.13 to satisfy
-    genekit's `requires-python >=3.12`. Its old `format="%(message)s - %(ex)s"` + `extra={"ex": e}`
-    idiom was dropped (genekit owns the format); exceptions now interpolate into the message. That
-    format was latently broken anyway — any record not passing `ex` would raise at format time.
+    genekit's `requires-python >=3.12`. Its app-local log format was dropped (genekit owns the
+    format); exceptions now interpolate into the message.
   - migrate: TTS done
   - migrate: MeadowLark done 2026-07-17 — both setup sites now call
     `configure_logging("ERROR", log_file=ERROR_LOG_PATH, console="none")`; no shim, since the app's
     `log_exception`/`get_local_timestamp` helpers are app decisions genekit does not cover, so
-    `src/logging_utils.py` stays app code and its ~40 call sites were untouched. Required bumping
+    `src/logging_utils.py` stays app code and its call sites were untouched. Required bumping
     `requires-python` 3.11 → 3.12 to satisfy genekit (same as Plex; interpreter was already 3.14).
     Two behavior changes accepted: genekit owns the format, so records gained `levelname`/`name`
     columns over the old `"%(asctime)s %(message)s"`; and the `log_exception` fallback now writes to
-    `ERROR_LOG_PATH` (env-overridable via `$VID_DL_ERROR_LOG`) instead of a hardcoded relative
-    `error_log.txt`, matching what the module-level setup already did.
+    the app's configured error-log path instead of a hardcoded relative filename, matching what the
+    module-level setup already did.
   - migrate: personal-agents (price-tracker) done 2026-07-17 at py-v0.2.0 — adopting its daemon
     logging drove adding optional size-based rotation to `genekit.logging` (`rotate_bytes` /
     `backup_count` on `configure_logging` + `add_file_handler`; both-or-neither, and `backup_count=0`
@@ -109,16 +108,30 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   without a formatter-injection seam, so the decision remains open — but it is now a *change* to
   `genekit.logging`, not a greenfield choice.
 
+## rate-smoother — time-windowed rolling average of a transfer rate, window growing with elapsed time
+- status: candidate
+- language: python
+- sightings:
+  - MeadowLark/src/progress_smoothing.py — 2026-08-26 — `ProgressSmoother`: deque of
+    (timestamp, cumulative bytes) samples pruned to a window of
+    `clamp(elapsed * 0.25, 3s, 30s)`; derives speed and ETA, EMA-smooths a noisy total
+    estimate, and throttles UI repaints. Cumulative series spans file boundaries so the
+    rate survives yt-dlp's video-stream → audio-stream switch.
+- notes: 1 of 3 sightings. Generalisation concerns: the byte-count/ETA vocabulary is
+  transfer-specific — a library version would want a neutral `observe(value, now)` /
+  `rate()` API with the ETA and total-estimate smoothing layered on top as optional
+  helpers. The repaint throttle is a separate concern and should not be promoted with it.
+
 ## config-loading — file + env-var config discovery and merge
 - status: candidate
 - language: python
 - sightings:
-  - remove-the-bloat — 2026-07-16 — `rtb.toml` plus `$RTB_CONFIG` override pattern.
+  - remove-the-bloat — 2026-07-16 — app config file plus an env-var override naming its location.
   - personal-agents/packages/agents-core/src/agents_core/config.py — 2026-07-16 — config loading for
     agent apps.
 - notes: 2 sightings across 2 repos — one short of ripe. The app-specific file name and env-var
-  prefix must become parameters (`rtb.toml` / `$RTB_CONFIG` are exactly the kind of hardcoding the
-  charter forbids). Compare against `tomllib` + `os.environ` before promoting. Partial match
+  prefix must become parameters — hardcoding either is exactly the kind of thing the charter
+  forbids. Compare against `tomllib` + `os.environ` before promoting. Partial match
   surveyed 2026-07-17: MeadowLark `src/config.py:_resolve_path` is env-var override with hardcoded
   defaults but no config-file layer — a subset of this capability, not counted as a sighting; if
   promotion scopes the API to make the file layer optional, recount it.
