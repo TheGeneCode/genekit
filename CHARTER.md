@@ -64,6 +64,61 @@ shared code.
 
 ---
 
+## Ledger hygiene
+
+The ledger is public. Every repo it cites is private. That makes
+[ledger/CANDIDATES.md](ledger/CANDIDATES.md) a public document whose entire content is evidence
+about closed source, and it is written by agents mid-task *inside* those private repos — the moment
+disclosure is least likely to be noticed. This section binds that moment. It applies to sighting
+notes, migration notes, and every other line of prose in the ledger.
+
+A sighting is `<repo>/<path>:<lines> — <YYYY-MM-DD> — <note>`. **The coordinates always stay.** Repo
+name, path, and line range are the evidence the rule of three runs on; redacting them would leave
+admission unauditable, and the consumers registry already names these repos in public. The note is
+the part under discipline.
+
+A note describes **the shape of the solution**, in vocabulary a reader who will never see that repo
+can still use. It may name the mechanism and the data structures, the stdlib or third-party API
+being wrapped, the app-local symbol being sighted, and the behavioural variation that makes this
+sighting independent of the others — that variation is the parameter space a future promotion
+designs against, and it is the only reason the note exists at all.
+
+A note may **not** carry:
+
+- **Verbatim code.** No snippets, no fenced blocks, no pasted signature with its defaults. An
+  identifier in backticks is a name; a line of code is a disclosure.
+- **Configuration or credential names.** No env-var names, no config keys, no config filenames, no
+  secret material of any kind — not redacted, not truncated, not "obviously harmless". Write *an
+  env-var override naming the config location*; never the name itself.
+- **Infrastructure identifiers.** No hostnames, internal URLs, endpoints, database or table names,
+  account or user identifiers, absolute filesystem paths, machine names.
+- **Business logic.** No thresholds, pricing, vendor or site names, customer or personal data, or
+  any statement of what the app does commercially. The utility is the subject; the app is only its
+  address.
+- **Scale metrics about a private codebase.** No counts of tests, lines, modules, files, importers,
+  or call sites. They are free intelligence about something nobody can read.
+- **Unfixed defects.** A latent bug named here is disclosed to no one it helps and everyone it does
+  not. File it in the repo that owns it.
+- **New private repo names.** Beyond a sighting's own coordinates and the consumers registry, do not
+  introduce one. *One further repo* says everything the ledger needs to say.
+
+Migration and `adopt-pending` notes obey all of the above and one rule more: **three lines, 400
+characters.** Such a note records the consumer, done-or-pending with a date, which genekit symbols
+it now calls, whether it landed as a shim or as call-site edits, and any behaviour change accepted
+— all stated in genekit's vocabulary, not the app's. Longer reasoning belongs in that consumer's own
+repo, where it is private and where the people it concerns will look for it. A sighting note is
+capped at 400 characters for the same reason: past that length a note has stopped describing the
+capability and started describing the app.
+
+The test, applied before saving: **would this note still be useful to a reader who has never seen
+that repo, and does it disclose anything they could not already infer from the path?** If the first
+answer is no, the note is not about the capability. If the second is yes, cut that part.
+
+`python/tests/test_ledger_hygiene.py` enforces the mechanical half and fails the suite that gates
+every tag. It is a backstop, not the rule: passing it is not evidence a note is clean.
+
+---
+
 ## Quality gate
 
 This gate applies to **every public symbol** and is enforced **before any release tag is cut**. It is
