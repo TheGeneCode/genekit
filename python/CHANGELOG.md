@@ -19,6 +19,15 @@
 - `README.md` links to `CHARTER.md`, `ledger/CANDIDATES.md` and the repo README are now absolute
   GitHub URLs. This file is embedded as the METADATA `Description`, where relative links resolve
   to nothing.
+- `[project.urls]` Changelog and Charter links pointed at `blob/master/`; the default branch is
+  `main`, so both 404'd — including from every wheel's METADATA. Fixed, along with the same three
+  broken links in `README.md`. `python/tests/test_public_docs.py` now fails on any `/blob/master/`
+  URL in a tracked document.
+- `README.md` (this file, embedded as the wheel METADATA `Description`) opens with a framing line
+  saying genekit is a personal library and that the `py-vX.Y.Z` tags are the only contract, and the
+  consumers registry now says in the file what it is for — the five repo names stay, because
+  `ledger/CANDIDATES.md` names the same repos with paths and the charter's breaking-change clause
+  depends on them.
 
 ### Note
 - Consumers pinned to `py-v0.1.0` / `py-v0.2.0` are pinned to commits that predate the license.

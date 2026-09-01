@@ -1,5 +1,12 @@
 # genekit
 
+> **A personal library, published rather than offered.** genekit exists to serve five of my own
+> applications and is developed entirely for that purpose. You are welcome to read it, fork it, or
+> depend on it — it is MIT — but nothing here is a product. **The only contract is a pinned tag:**
+> `py-vX.Y.Z` tags are annotated, never moved and never deleted, and that is the whole of what I
+> promise. `main` is a working branch and can change under you. Issues are off and pull requests are
+> closed without review; [CONTRIBUTING.md](CONTRIBUTING.md) says why, and names the one exception.
+
 A personal, cross-app **decisions library**. It holds two kinds of code: opinionated glue that
 encodes a decision I have already made and do not want to re-make per app (how logging is set up,
 how config is discovered, how a URL is normalized), and genuinely hard logic that is used by three
@@ -49,7 +56,7 @@ dependencies = ["genekit"]
 genekit = { git = "https://github.com/TheGeneCode/genekit", subdirectory = "python", tag = "py-vX.Y.Z" }
 ```
 
-Consumers pin **tags only — never a branch**. A branch pin means an unrelated push to `master` can
+Consumers pin **tags only — never a branch**. A branch pin means an unrelated push to `main` can
 silently change a consumer's behaviour on its next lock refresh, which is precisely the failure mode
 a shared library is supposed to eliminate. Every consumer and its pinned tag is recorded in the
 consumers registry in [python/README.md](python/README.md).
@@ -72,3 +79,8 @@ needs to version independently of the rest — a real need, not an anticipated o
 Keep the public surface small. Every exported symbol is a promise to every consumer, and the cost of
 a shared library is paid at the API boundary. Deleting modules that no consumer uses is allowed and
 encouraged at major bumps; a shrinking library is a healthy one.
+
+## License
+
+MIT — see [LICENSE](LICENSE). The license governs the code; [CHARTER.md](CHARTER.md) governs what is
+allowed to join it.

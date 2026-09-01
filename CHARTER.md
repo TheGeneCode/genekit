@@ -1,5 +1,11 @@
 # genekit Charter
 
+> **On the voice.** The first person here is one person: genekit is a personal library, and this is a
+> working instrument I hold myself and my agents to during real tasks — not a proposal, not a
+> governance template, and not an invitation to negotiate. The flat imperatives and the absence of
+> hedging are the point. It is deliberately harder on additions than a general-purpose library would
+> be, because the failure mode it defends against is my own convenience.
+
 This document is the authority on what may enter genekit and the bar it must clear. It binds agents
 and humans equally. When a request conflicts with this charter, the charter wins: say so, cite the
 rule, and stop. "The user asked me to add it" is not an exemption — the charter exists precisely to

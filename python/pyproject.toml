@@ -12,8 +12,8 @@ dependencies = []
 [project.urls]
 Homepage = "https://github.com/TheGeneCode/genekit"
 Repository = "https://github.com/TheGeneCode/genekit"
-Changelog = "https://github.com/TheGeneCode/genekit/blob/master/python/CHANGELOG.md"
-Charter = "https://github.com/TheGeneCode/genekit/blob/master/CHARTER.md"
+Changelog = "https://github.com/TheGeneCode/genekit/blob/main/python/CHANGELOG.md"
+Charter = "https://github.com/TheGeneCode/genekit/blob/main/CHARTER.md"
 
 [project.optional-dependencies]
 rich = ["rich>=13"]
