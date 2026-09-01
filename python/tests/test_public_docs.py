@@ -58,13 +58,14 @@ def test_contributing_exists_and_is_reachable_from_the_root_readme() -> None:
 def test_consumers_registry_still_names_every_consumer() -> None:
     """CHARTER.md requires migration notes to name every consumer in the registry. A future
     redaction pass that empties the name column would silently break that clause, so pin the
-    decision made in this plan: the five names stay.
+    decision made in this plan: the remaining names stay. Plex was removed 2026-09-01: its
+    migration is not present in the repo, so listing it made the registry assert something false.
     """
     readme = (PYTHON_ROOT / "README.md").read_text(encoding="utf-8")
     registry = readme.split("## Consumers registry", 1)
     assert len(registry) == 2, "no '## Consumers registry' section in python/README.md"
     body = registry[1]
-    for consumer in ("remove-the-bloat", "Plex", "TTS", "MeadowLark", "personal-agents"):
+    for consumer in ("remove-the-bloat", "TTS", "MeadowLark", "personal-agents"):
         assert consumer in body, f"consumers registry no longer names {consumer!r}"
 
 
