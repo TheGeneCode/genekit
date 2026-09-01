@@ -1,6 +1,7 @@
 """Tests for genekit.logging."""
 
 import builtins
+import importlib.util
 import logging
 import re
 import threading
@@ -55,6 +56,69 @@ def test_rich_missing_falls_back_to_plain(monkeypatch):
 
     def fake_import(name, *args, **kwargs):
         if name.startswith("rich"):
+            raise ImportError(f"No module named {name!r}")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    configure_logging(console="rich")
+    handlers = logging.getLogger().handlers
+    assert len(handlers) == 1
+    assert type(handlers[0]) is logging.StreamHandler
+
+
+def test_rich_console_uses_richhandler_when_rich_is_installed():
+    """The ``else:`` branch of ``_make_console_handler`` — reachable only when rich really imports.
+
+    ``test_rich_missing_falls_back_to_plain`` fakes the ImportError and so passes in both CI
+    profiles; nothing else in this file reaches the RichHandler construction. Skipped on the
+    ``bare`` matrix leg, which is the point: the two profiles cover different branches.
+    """
+    rich_logging = pytest.importorskip("rich.logging")
+    configure_logging(console="rich")
+    handlers = logging.getLogger().handlers
+    assert len(handlers) == 1
+    assert isinstance(handlers[0], rich_logging.RichHandler)
+
+
+def test_rich_console_degrades_to_plain_when_rich_is_genuinely_absent():
+    """The same fallback the monkeypatched test asserts, but with rich actually not installed.
+
+    This is what the ``bare`` CI profile exercises: a real failed import at the real import site,
+    rather than a faked one. Skipped on the ``rich`` leg.
+
+    The skip guard deliberately checks ``find_spec("rich")``, not ``find_spec("rich.logging")``:
+    ``find_spec`` on a dotted name imports each parent package to resolve the child, so when the
+    parent is genuinely missing it raises ``ModuleNotFoundError`` instead of returning ``None`` —
+    confirmed empirically (bare env): ``find_spec("rich")`` returns ``None``, but
+    ``find_spec("rich.logging")`` raises. The finer-grained check would crash this test's skip
+    guard on the very ``bare`` leg it exists to run on, so the coarser top-level check is correct,
+    not merely a shortcut.
+    """
+    if importlib.util.find_spec("rich") is not None:
+        pytest.skip("rich is installed; this test asserts the genuinely-absent path")
+    configure_logging(console="rich")
+    handlers = logging.getLogger().handlers
+    assert len(handlers) == 1
+    assert type(handlers[0]) is logging.StreamHandler
+
+
+def test_rich_partial_import_failure_falls_back_to_plain(monkeypatch):
+    """`_make_console_handler`'s ``try`` block imports ``rich.console`` then ``rich.logging`` in
+    sequence; ``test_rich_missing_falls_back_to_plain`` fakes failure on the *first* import (any
+    name starting with ``"rich"``), so the ``except ImportError`` catching a failure of the
+    *second* import specifically — parent package present and importable, only the ``rich.logging``
+    submodule import raising — was never exercised by any existing test.
+
+    This is also the direct, code-level answer to whether "rich present but ``rich.logging``
+    import fails" is a real gap: it is not a gap in the shipped fallback behaviour (this test
+    proves that path is handled correctly), only in *which test's skip guard* would have run in
+    that scenario — and that guard's own correctness is covered by the note above.
+    """
+    pytest.importorskip("rich.console")
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "rich.logging" or name.startswith("rich.logging."):
             raise ImportError(f"No module named {name!r}")
         return real_import(name, *args, **kwargs)
 

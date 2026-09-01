@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["py-v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Never cancel a tag run: it is the charter's pre-release gate, not a work-in-progress push.
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+defaults:
+  run:
+    working-directory: python
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "python/uv.lock"
+      - run: uv sync --locked
+      # CHARTER.md § Quality gate: zero findings, not "only warnings".
+      - run: uv run ruff check .
+
+  test:
+    name: py${{ matrix.python-version }} · ${{ matrix.extras }} · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+        extras: [bare, rich]
+        include:
+          # Windows is the maintainer's dev OS and the only place the file-lock and
+          # rotation-rename behaviour in genekit.logging actually differs. Floor and ceiling
+          # only — a full cross would triple the Windows minutes (billed at 2x) for no new branch.
+          - os: windows-latest
+            python-version: "3.12"
+            extras: bare
+          - os: windows-latest
+            python-version: "3.14"
+            extras: rich
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: "python/uv.lock"
+
+      # --locked (not --frozen) so a uv.lock that has drifted from pyproject.toml fails CI.
+      - name: Sync without extras (the documented no-rich path)
+        if: matrix.extras == 'bare'
+        run: uv sync --locked
+
+      - name: Sync with the rich extra
+        if: matrix.extras == 'rich'
+        run: uv sync --locked --extra rich
+
+      # Without this, a mis-written skip guard in either rich test makes BOTH tests skip in BOTH
+      # legs, and the two-profile matrix goes green while covering nothing.
+      - name: Assert the environment matches the matrix leg
+        run: uv run python -c "import importlib.util as u; want = '${{ matrix.extras }}' == 'rich'; got = u.find_spec('rich') is not None; assert got == want, f'rich installed={got}, matrix leg wants {want}'"
+
+      - run: uv run pytest -q
+
+  tag-matches-version:
+    name: tag == pyproject version
+    if: startsWith(github.ref, 'refs/tags/py-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+      - name: Compare the annotated tag to [project] version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          uv run --no-project python - <<'PY'
+          import os
+          import sys
+          import tomllib
+
+          tag = os.environ["TAG"]
+          want = tag.removeprefix("py-v")
+          with open("pyproject.toml", "rb") as fh:
+              got = tomllib.load(fh)["project"]["version"]
+          if got != want:
+              sys.exit(f"tag {tag} implies version {want}, but pyproject.toml declares {got}")
+          print(f"OK: {tag} == {got}")
+          PY

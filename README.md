@@ -1,5 +1,7 @@
 # genekit
 
+[![CI](https://github.com/TheGeneCode/genekit/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/TheGeneCode/genekit/actions/workflows/ci.yml)
+
 > **A personal library, published rather than offered.** genekit exists to serve five of my own
 > applications and is developed entirely for that purpose. You are welcome to read it, fork it, or
 > depend on it — it is MIT — but nothing here is a product. **The only contract is a pinned tag:**

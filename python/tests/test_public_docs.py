@@ -18,6 +18,7 @@ _PUBLIC_DOCS = (
     REPO_ROOT / "README.md",
     REPO_ROOT / "CHARTER.md",
     REPO_ROOT / "CONTRIBUTING.md",
+    REPO_ROOT / "SECURITY.md",
     REPO_ROOT / "ledger" / "CANDIDATES.md",
     PYTHON_ROOT / "README.md",
     PYTHON_ROOT / "CHANGELOG.md",

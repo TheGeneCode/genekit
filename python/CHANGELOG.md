@@ -12,6 +12,16 @@
   Homepage, Repository, Changelog and Charter links.
 - `tests/test_packaging_metadata.py` — asserts the license expression, the recorded license file,
   attribution, and that the two LICENSE files stay byte-identical.
+- **CI.** `.github/workflows/ci.yml` mechanizes the machine-checkable half of the charter's quality
+  gate — `uv run ruff check .` at zero findings, and pytest across Python 3.12/3.13/3.14 in two
+  dependency profiles (no extras, and `--extra rich`), plus two Windows legs at the floor and
+  ceiling. A tag-triggered job asserts a pushed `py-vX.Y.Z` tag matches `[project] version`.
+  Docstring examples, the qa-boundary-tester review and ledger-note judgement stay human.
+- Two tests covering the rich console branch that no test reached before: the `RichHandler` path
+  (skipped when rich is absent) and the genuinely-absent fallback (skipped when rich is present).
+  `test_rich_missing_falls_back_to_plain` fakes the ImportError and so passed in both environments.
+- `SECURITY.md` at the repo root, naming GitHub private vulnerability reporting as the only channel,
+  and `.github/dependabot.yml` to keep the workflow's SHA-pinned actions current.
 
 ### Changed
 - `description` no longer ends in the relative path `../CHARTER.md`, which was meaningless once
