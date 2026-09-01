@@ -1,5 +1,29 @@
 # Changelog (python package — tags py-vX.Y.Z)
 
+## Unreleased
+
+### Added
+- **MIT license.** `LICENSE` at the repo root (for GitHub detection) and an identical
+  `python/LICENSE` at the build root, declared in PEP 639 form — `license = "MIT"` plus
+  `license-files = ["LICENSE"]` — so the license text ships inside the wheel at
+  `dist-info/licenses/LICENSE`. A root-only LICENSE would not have: hatchling's build root is
+  `python/`, and `license-files = ["../LICENSE"]` builds a wheel that `twine check` rejects.
+- Package metadata for public consumption: `authors` (name only), and `[project.urls]` with
+  Homepage, Repository, Changelog and Charter links.
+- `tests/test_packaging_metadata.py` — asserts the license expression, the recorded license file,
+  attribution, and that the two LICENSE files stay byte-identical.
+
+### Changed
+- `description` no longer ends in the relative path `../CHARTER.md`, which was meaningless once
+  embedded in wheel METADATA; the charter is linked from `[project.urls]` instead.
+- `README.md` links to `CHARTER.md`, `ledger/CANDIDATES.md` and the repo README are now absolute
+  GitHub URLs. This file is embedded as the METADATA `Description`, where relative links resolve
+  to nothing.
+
+### Note
+- Consumers pinned to `py-v0.1.0` / `py-v0.2.0` are pinned to commits that predate the license.
+  They pick it up only on the next tag bump.
+
 ## py-v0.2.0 — 2026-07-17
 
 ### Added

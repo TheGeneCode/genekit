@@ -1,10 +1,19 @@
 [project]
 name = "genekit"
 version = "0.2.0"
-description = "Personal cross-app shared library (Python). Admission and quality rules: ../CHARTER.md"
+description = "Personal cross-app shared library (Python) — opinionated glue for decisions worth making once."
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "TheGeneCode" }]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/TheGeneCode/genekit"
+Repository = "https://github.com/TheGeneCode/genekit"
+Changelog = "https://github.com/TheGeneCode/genekit/blob/master/python/CHANGELOG.md"
+Charter = "https://github.com/TheGeneCode/genekit/blob/master/CHARTER.md"
 
 [project.optional-dependencies]
 rich = ["rich>=13"]

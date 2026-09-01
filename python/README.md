@@ -1,9 +1,9 @@
 # genekit (Python)
 
 The Python language dir. Tags are prefixed `py-vX.Y.Z`. Admission rules and the quality gate live in
-[../CHARTER.md](../CHARTER.md); promotion candidates live in [../ledger/CANDIDATES.md](../ledger/CANDIDATES.md).
+[CHARTER.md](https://github.com/TheGeneCode/genekit/blob/master/CHARTER.md); promotion candidates live in [ledger/CANDIDATES.md](https://github.com/TheGeneCode/genekit/blob/master/ledger/CANDIDATES.md).
 
-Both tables below are filled in by promotions — see [../README.md](../README.md) for the consumer
+Both tables below are filled in by promotions — see [the repo README](https://github.com/TheGeneCode/genekit/blob/master/README.md) for the consumer
 install recipe.
 
 ## Module inventory
