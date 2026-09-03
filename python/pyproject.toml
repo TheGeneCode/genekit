@@ -3,7 +3,7 @@ name = "genekit"
 version = "0.2.0"
 description = "Personal cross-app shared library (Python) — opinionated glue for decisions worth making once."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "TheGeneCode" }]
@@ -19,7 +19,7 @@ Charter = "https://github.com/TheGeneCode/genekit/blob/main/CHARTER.md"
 rich = ["rich>=13"]
 
 [dependency-groups]
-dev = ["pytest>=8", "hypothesis>=6", "ruff"]
+dev = ["pytest>=8", "hypothesis>=6", "ruff", "tomli>=2; python_version < '3.11'"]
 
 [build-system]
 requires = ["hatchling"]
@@ -30,7 +30,7 @@ packages = ["src/genekit"]
 
 [tool.ruff]
 line-length = 100
-# target-version intentionally omitted: ruff infers it from requires-python (>=3.12).
+# target-version intentionally omitted: ruff infers it from requires-python (>=3.10).
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "ANN", "Q", "SIM", "PTH"]

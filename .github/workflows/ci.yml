@@ -28,6 +28,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
+          # ruff reads target-version from requires-python, not from the interpreter it runs
+          # on, so this pin is arbitrary and need not track the package floor.
           python-version: "3.12"
           enable-cache: true
           cache-dependency-glob: "python/uv.lock"
@@ -42,14 +44,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.14"]
         extras: [bare, rich]
         include:
+          # Mid anchor. genekit is stdlib-only with zero runtime deps, so interpreter risk lives
+          # at the ends of the supported range; one bare leg in the middle is enough to catch a
+          # deprecation that lands between floor and ceiling.
+          - os: ubuntu-latest
+            python-version: "3.12"
+            extras: bare
           # Windows is the maintainer's dev OS and the only place the file-lock and
           # rotation-rename behaviour in genekit.logging actually differs. Floor and ceiling
           # only — a full cross would triple the Windows minutes (billed at 2x) for no new branch.
           - os: windows-latest
-            python-version: "3.12"
+            python-version: "3.10"
             extras: bare
           - os: windows-latest
             python-version: "3.14"
@@ -86,6 +94,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
+          # This job's inline script imports tomllib, so it must run on 3.11+ regardless of
+          # the package floor.
           python-version: "3.12"
       - name: Compare the annotated tag to [project] version
         env:

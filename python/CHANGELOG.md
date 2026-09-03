@@ -13,9 +13,10 @@
 - `tests/test_packaging_metadata.py` — asserts the license expression, the recorded license file,
   attribution, and that the two LICENSE files stay byte-identical.
 - **CI.** `.github/workflows/ci.yml` mechanizes the machine-checkable half of the charter's quality
-  gate — `uv run ruff check .` at zero findings, and pytest across Python 3.12/3.13/3.14 in two
-  dependency profiles (no extras, and `--extra rich`), plus two Windows legs at the floor and
-  ceiling. A tag-triggered job asserts a pushed `py-vX.Y.Z` tag matches `[project] version`.
+  gate — `uv run ruff check .` at zero findings, and pytest across Python 3.10/3.12/3.14 in two
+  dependency profiles (no extras, and `--extra rich`) across 5 Ubuntu legs, plus two Windows legs
+  at the floor and ceiling (7 legs total). A tag-triggered job asserts a pushed `py-vX.Y.Z` tag
+  matches `[project] version`.
   Docstring examples, the qa-boundary-tester review and ledger-note judgement stay human.
 - Two tests covering the rich console branch that no test reached before: the `RichHandler` path
   (skipped when rich is absent) and the genuinely-absent fallback (skipped when rich is present).
@@ -24,6 +25,13 @@
   and `.github/dependabot.yml` to keep the workflow's SHA-pinned actions current.
 
 ### Changed
+- **Lowered `requires-python` from `>=3.12` to `>=3.10`.** No library source changed — 3.10 is a
+  hard floor set by the PEP 604 `X | None` module-level annotation on
+  `current_scope_label: contextvars.ContextVar[str | None]` in `genekit/logging.py`. The test
+  suite gained a `tomli` dev-only fallback (`tomli>=2; python_version < '3.11'`) because `tomllib`
+  itself is 3.11+ and `tests/test_packaging_metadata.py` needs it below that. The CI matrix moved
+  from 8 legs to 7, now exercising both the 3.10 floor and the 3.14 ceiling on Ubuntu and Windows,
+  with 3.12 kept as a bare mid-anchor leg.
 - `description` no longer ends in the relative path `../CHARTER.md`, which was meaningless once
   embedded in wheel METADATA; the charter is linked from `[project.urls]` instead.
 - `README.md` links to `CHARTER.md`, `ledger/CANDIDATES.md` and the repo README are now absolute
