@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## py-v0.2.1 — 2026-9-03
+
 ### Added
 - **MIT license.** `LICENSE` at the repo root (for GitHub detection) and an identical
   `python/LICENSE` at the build root, declared in PEP 639 form — `license = "MIT"` plus
