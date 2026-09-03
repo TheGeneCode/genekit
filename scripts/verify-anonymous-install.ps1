@@ -469,7 +469,7 @@ function New-LegPyproject {
 [project]
 name = "genekit-anon-check"
 version = "0.0.0"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = ["$dep"]
 
 [tool.uv.sources]

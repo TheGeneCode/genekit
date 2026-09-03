@@ -51,7 +51,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - remove-the-bloat/src/remove_the_bloat/logging_setup.py — 2026-07-16 — rich console handler plus
     scoped file routing; the most developed of the three.
   - Plex/randomNextEpisode.py:15 — 2026-07-16 — `logging.basicConfig` one-liner.
-  - TTS/articleReader.py:48-70,204-210 — 2026-07-16 — dedicated usage logger alongside a
+  - Starling/articleReader.py:48-70,204-210 — 2026-07-16 — dedicated usage logger alongside a
     `basicConfig` call.
 - notes: Promoted 2026-07-16 as `genekit.logging` (py-v0.1.0). The originating app's domain
   vocabulary was stripped for the library API; rich sits behind the `genekit[rich]` extra with a
@@ -62,7 +62,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - migrate: Plex pending — a previously recorded migration is not present in the repo; the app still
     configures logging locally and its interpreter floor is below the library's. Re-do under
     `/genekit adopt`.
-  - migrate: TTS done 2026-07-16 — `dedicated_file_logger` replaces the app's usage logger, no shim.
+  - migrate: Starling done 2026-07-16 — `dedicated_file_logger` replaces the app's usage logger, no shim.
   - migrate: MeadowLark done 2026-07-17 — `configure_logging` at both setup sites, no shim: the
     app's own exception and timestamp helpers are app decisions genekit does not cover. Required
     raising `requires-python`; records gained the library's level and logger columns.
@@ -145,3 +145,29 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   surveyed 2026-07-17: MeadowLark `src/config.py:_resolve_path` is env-var override with hardcoded
   defaults but no config-file layer — a subset of this capability, not counted as a sighting; if
   promotion scopes the API to make the file layer optional, recount it.
+
+## user-state-dir — platform-appropriate directory for an app's machine-local state
+- status: candidate
+- language: python
+- sightings:
+  - Starling/src/starling/update_check.py — 2026-09-02 — sys.platform branch returning a
+    pathlib.Path under the Windows local-appdata variable, the macOS Application Support
+    folder, or the XDG state dir, each suffixed with an app name; deliberately separate
+    from the app's user-facing data root, which may live in a synced folder. Hand-rolled
+    to avoid a new wheel for a dozen lines.
+- notes: platformdirs covers this; the open question is whether a dozen lines of stdlib
+  beats a dependency for apps that need only one of its directories. Revisit at a second
+  sighting.
+
+## release-update-check — throttled check of a project's published releases from a running app
+- status: candidate
+- language: python
+- sightings:
+  - MeadowLark/src/version_utils.py — 2026-09-02 — regex-digit version tuple compared
+    against the first entry of a forge's releases listing; requests with a timeout, every
+    transport error folded to None; a GUI thread surfaces the result in a dialog.
+  - Starling/src/starling/update_check.py — 2026-09-02 — same comparison, but for a
+    short-lived CLI: an on-disk JSON throttle stamped before a daemon thread refreshes it,
+    so the notice comes from cache and the process start path never blocks on the network.
+- notes: the version-tuple comparison and the "any failure is None" fetch are the shared
+  core; presentation and throttling differ per app shape and should stay caller-side.

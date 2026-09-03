@@ -6,7 +6,7 @@ These assertions read the *installed* dist-info, so they only reflect ``pyprojec
 
 import re
 import subprocess
-import tomllib
+import sys
 import zipfile
 from datetime import datetime
 from importlib.metadata import distribution, metadata
@@ -14,6 +14,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
+
+# tomllib landed in the stdlib in 3.11; the package floor is 3.10, so fall back to the
+# tomli backport (a dev-only dependency, gated by the same version marker) below it.
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
@@ -194,3 +201,197 @@ def test_changelog_unreleased_section_is_present_and_non_empty() -> None:
     match = re.search(r"^## Unreleased\s*\n(.*?)(?=\n## |\Z)", changelog, re.MULTILINE | re.DOTALL)
     assert match is not None, "no '## Unreleased' section found in CHANGELOG.md"
     assert match.group(1).strip(), "'## Unreleased' section is present but empty"
+
+
+def test_pyproject_requires_python_is_the_documented_floor() -> None:
+    """The floor is a promise to consumers, not an implementation detail: every app that adopts
+    genekit inherits it, and an overshoot silently forces those apps up an interpreter. Pinning the
+    exact string here means any future widening or re-narrowing has to be a deliberate edit to a
+    test that says what the floor is, rather than a quiet side effect of a dependency bump.
+    """
+    assert _load_pyproject()["project"]["requires-python"] == ">=3.10"
+
+
+def test_dev_group_carries_a_tomli_fallback_below_the_tomllib_floor() -> None:
+    """``tomllib`` only entered the stdlib in 3.11, but this very module parses TOML and the
+    package floor is 3.10 — without the marker-gated ``tomli`` backport in the dev group, the whole
+    file fails to import on the floor leg, silently dropping every packaging assertion on exactly
+    the interpreter the floor exists to prove. Guard the fallback against being tidied away.
+    """
+    dev = _load_pyproject()["dependency-groups"]["dev"]
+    fallbacks = [entry for entry in dev if entry.startswith("tomli")]
+    assert fallbacks, f"no tomli entry in the dev dependency group: {dev}"
+    markers = [entry.partition(";")[2].replace('"', "'") for entry in fallbacks]
+    assert any("python_version < '3.11'" in marker for marker in markers), (
+        f"tomli is present but not gated on python_version < '3.11': {fallbacks}"
+    )
+
+
+def test_wheel_declares_the_floor_in_its_metadata(built_wheel: Path) -> None:
+    """The source TOML declaring a floor and the built artifact carrying it are two different
+    claims — pip and uv read the wheel's ``Requires-Python``, not ``pyproject.toml``. Read it back
+    out of a real hatchling build so a packaging-backend or config change that drops the field is
+    caught here rather than by a consumer resolving genekit onto an interpreter it cannot run on.
+    """
+    with zipfile.ZipFile(built_wheel) as zf:
+        metadata_name = next(n for n in zf.namelist() if n.endswith(".dist-info/METADATA"))
+        content = zf.read(metadata_name).decode("utf-8")
+    lines = content.splitlines()
+    assert "Requires-Python: >=3.10" in lines
+
+
+_CI_PYTHON_VERSION_LIST = re.compile(r"python-version:\s*\[([^\]]*)\]")
+_CI_PYTHON_VERSION_SCALAR = re.compile(r"""python-version:\s*["'](\d+\.\d+)["']""")
+_CI_QUOTED_VERSION = re.compile(r"""["'](\d+\.\d+)["']""")
+
+
+def test_ci_matrix_actually_exercises_the_declared_floor() -> None:
+    """A declared floor that no CI leg runs is a claim, not a fact — the repo's own CI notes say so.
+    This test is the link between the two: it reads the floor out of ``requires-python`` (rather
+    than repeating the literal, so the two cannot drift) and proves the test job's matrix names it.
+
+    It is written to fail loudly rather than emptily. A workflow reformat that broke the extraction
+    would otherwise leave a green no-op — the same degradation
+    ``test_installed_distribution_files_is_not_none`` guards against — so both slice boundaries and
+    a plausible version count are asserted before the membership check. The slice matters too:
+    the ``lint`` and ``tag-matches-version`` jobs carry their own unrelated interpreter pins, and
+    searching the whole file would let those satisfy this assertion even if the matrix named
+    nothing at all.
+    """
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    start = re.search(r"^  test:$", workflow, re.MULTILINE)
+    assert start is not None, "no '  test:' job key found in ci.yml; the slice boundary moved"
+    end = re.search(r"^  tag-matches-version:$", workflow, re.MULTILINE)
+    assert end is not None, "no '  tag-matches-version:' job key found in ci.yml"
+    assert end.start() > start.start(), "ci.yml job order changed; the test-job slice is inverted"
+    test_job = workflow[start.start() : end.start()]
+
+    versions = set(_CI_PYTHON_VERSION_SCALAR.findall(test_job))
+    for listed in _CI_PYTHON_VERSION_LIST.findall(test_job):
+        versions.update(_CI_QUOTED_VERSION.findall(listed))
+
+    assert versions, "no python-version values extracted from the test job; the regex went stale"
+    assert len(versions) >= 3, (
+        f"test matrix names too few interpreters to be the real one: {sorted(versions)}"
+    )
+
+    requires_python = _load_pyproject()["project"]["requires-python"]
+    floor = re.fullmatch(r">=(\d+\.\d+)", requires_python)
+    assert floor is not None, f"requires-python is not a bare '>=X.Y' floor: {requires_python!r}"
+    assert floor.group(1) in versions, (
+        f"declared floor {floor.group(1)} is not in the CI test matrix: {sorted(versions)}"
+    )
+
+
+def _extract_versions(text: str) -> set[str]:
+    """Same extraction algorithm as ``test_ci_matrix_actually_exercises_the_declared_floor``,
+    factored out so the regex trio can be exercised directly against synthetic strings.
+    """
+    versions = set(_CI_PYTHON_VERSION_SCALAR.findall(text))
+    for listed in _CI_PYTHON_VERSION_LIST.findall(text):
+        versions.update(_CI_QUOTED_VERSION.findall(listed))
+    return versions
+
+
+def test_ci_version_list_regex_extracts_all_quoted_entries_from_a_flow_list() -> None:
+    text = '        python-version: ["3.10", "3.14"]\n'
+    lists = _CI_PYTHON_VERSION_LIST.findall(text)
+    assert lists == ['"3.10", "3.14"']
+    assert set(_CI_QUOTED_VERSION.findall(lists[0])) == {"3.10", "3.14"}
+
+
+def test_ci_version_list_regex_does_not_cross_a_closing_bracket() -> None:
+    """``[^\\]]*`` must stop at the first ``]`` so a second bracketed matrix key on the same
+    line (e.g. ``extras: [bare, rich]``) never bleeds into the captured version list.
+    """
+    text = 'python-version: ["3.10"]\nextras: [bare, rich]\n'
+    assert _CI_PYTHON_VERSION_LIST.findall(text) == ['"3.10"']
+
+
+def test_ci_version_scalar_regex_extracts_include_leg_pins() -> None:
+    text = '          - os: windows-latest\n            python-version: "3.10"\n'
+    assert _CI_PYTHON_VERSION_SCALAR.findall(text) == ["3.10"]
+
+
+def test_ci_version_regexes_ignore_matrix_interpolation_syntax() -> None:
+    """``python-version: ${{ matrix.python-version }}`` (the job-name and setup-uv usage in the
+    real workflow) names the matrix key — it must not be mistaken for a literal version pin, or
+    every job using the standard ``setup-uv`` step would falsely satisfy the assertion regardless
+    of what the matrix actually declares.
+    """
+    text = "name: py${{ matrix.python-version }}\npython-version: ${{ matrix.python-version }}\n"
+    assert _CI_PYTHON_VERSION_SCALAR.findall(text) == []
+    assert _CI_PYTHON_VERSION_LIST.findall(text) == []
+
+
+def test_ci_version_regexes_do_not_extract_an_unquoted_flow_list() -> None:
+    """An unquoted flow-style list (``[3.10, 3.14]``) is valid YAML and a plausible future
+    reformat (flagged as a risk in the implementation handoff). The current regexes are
+    quoted-only and do NOT extract it — pin that gap explicitly here. This is not silently unsafe:
+    ``test_ci_matrix_actually_exercises_the_declared_floor`` asserts ``versions`` is non-empty and
+    has >=3 entries before checking membership, so this shape fails loudly rather than passing
+    vacuously.
+    """
+    text = "python-version: [3.10, 3.14]\n"
+    lists = _CI_PYTHON_VERSION_LIST.findall(text)
+    assert lists == ["3.10, 3.14"]
+    assert _CI_QUOTED_VERSION.findall(lists[0]) == []
+    assert _extract_versions(text) == set()
+
+
+def test_ci_matrix_slice_excludes_unrelated_jobs_pins() -> None:
+    """Regression guard for the reason the real test slices the workflow to the ``test:`` job
+    before searching: the ``lint`` and ``tag-matches-version`` jobs carry their own unrelated
+    hardcoded ``python-version: "3.12"`` pins. Without the slice, those pins could pad the
+    extracted version set and mask a test-job matrix that had genuinely dropped a version —
+    a false pass. This synthetic workflow drops "3.12" from the test job's own matrix so the
+    slice's effect is provable independent of the real ci.yml's current leg shape.
+    """
+    synthetic = (
+        "  lint:\n"
+        '    python-version: "3.12"\n'
+        "  test:\n"
+        "    strategy:\n"
+        "      matrix:\n"
+        '        python-version: ["3.11", "3.13"]\n'
+        "  tag-matches-version:\n"
+        '    python-version: "3.12"\n'
+    )
+    start = re.search(r"^  test:$", synthetic, re.MULTILINE)
+    end = re.search(r"^  tag-matches-version:$", synthetic, re.MULTILINE)
+    assert start is not None
+    assert end is not None
+    sliced = synthetic[start.start() : end.start()]
+
+    assert _extract_versions(sliced) == {"3.11", "3.13"}
+    assert _extract_versions(synthetic) == {"3.11", "3.12", "3.13"}
+    # The unsliced extraction "finds" 3.12 only via the unrelated lint/tag-matches-version pins —
+    # proof that skipping the slice would let those jobs mask a test matrix that dropped it.
+    assert "3.12" not in _extract_versions(sliced)
+
+
+@pytest.mark.parametrize(
+    ("marker_suffix", "expected_match"),
+    [
+        (" python_version < '3.11'", True),
+        (' python_version < "3.11"', True),
+        (" python_version<'3.11'", False),
+        (" python_version  <  '3.11'", False),
+    ],
+)
+def test_tomli_marker_match_is_exact_whitespace_and_quote_sensitive(
+    marker_suffix: str, expected_match: bool
+) -> None:
+    """Pins the actual behavior of the marker-matching logic in
+    ``test_dev_group_carries_a_tomli_fallback_below_the_tomllib_floor``: it does a literal
+    substring check on ``"python_version < '3.11'"`` after quote normalization, not a semantic
+    marker-expression parse. A functionally equivalent marker written without the spaces around
+    ``<`` (``python_version<'3.11'``) would NOT satisfy that test even though pip/uv would
+    evaluate it identically. Low risk in practice — this repo's own pyproject.toml always writes
+    the spaced form — but worth pinning so a future reformat of the marker doesn't produce a
+    confusing failure in an unrelated-looking test.
+    """
+    entry = f"tomli>=2;{marker_suffix}"
+    marker = entry.partition(";")[2].replace('"', "'")
+    assert ("python_version < '3.11'" in marker) == expected_match
