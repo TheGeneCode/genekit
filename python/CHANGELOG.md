@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-## py-v0.2.1 — 2026-9-03
+## py-v0.2.2 — 2026-09-03
+
+Re-tagged from py-v0.2.1: that tag was cut before the version-bump commit merged, so it
+pointed at a tree still declaring `0.2.0` and failed the tag-matches-version CI check.
+Tag protection on this repo forbids retargeting an existing tag, so the release moved to
+the next version instead. No package changes beyond the version bump.
 
 ### Added
 - **MIT license.** `LICENSE` at the repo root (for GitHub detection) and an identical
