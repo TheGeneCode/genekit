@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## py-v0.3.1 — 2026-09-17
+
+Supersedes py-v0.3.0, whose tag CI run failed: `format_timestamp` handed `fmt` straight to the
+platform `strftime`, whose behaviour differs by OS. Pin this tag, not py-v0.3.0.
+
+### Fixed
+- **`format_timestamp` raises `ValueError` for a malformed `fmt` on every OS.** glibc copies an
+  unknown directive such as `%Q` (or a trailing lone `%`) into the output verbatim; only the
+  Windows UCRT raised, so the documented contract held on Windows alone.
+- **Non-ASCII literal text in `fmt` renders on Windows under Python 3.10 and 3.11.** Those
+  interpreters encode the whole format with the locale codec before calling the C runtime, so any
+  character outside e.g. cp1252 (`年`, `→`) raised `UnicodeEncodeError`. Literal text is now
+  copied through without reaching C.
+
+### Changed
+- `fmt` accepts exactly the directives that render identically on glibc and the Windows UCRT: the
+  C89/C99 set plus Python's `%f`, `%z` and `%Z`. Platform-only extensions — glibc's `%-d`, `%P`,
+  `%k`, `%s`, Windows' `%#d`, and 3.12's `%:z` — now raise everywhere instead of working on one OS
+  and breaking on another.
+
 ## py-v0.3.0 — 2026-09-17
 
 ### Added
