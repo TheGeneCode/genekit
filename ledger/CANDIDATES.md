@@ -73,18 +73,26 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     candidate for `/genekit adopt`. An external fork was surveyed and excluded as not our code.
 
 ## tz-helpers — timezone-aware datetime construction and conversion
-- status: candidate
+- status: ripe
 - language: python
 - sightings:
   - personal-agents/packages/agents-core/src/agents_core/tz.py — 2026-07-16 — battle-tested in
     production use.
   - remove-the-bloat/src/remove_the_bloat/activity.py:31-45 — 2026-07-17 — hand-rolled
     Denver-local timestamp helper (`_DENVER = ZoneInfo(...)` + `_timestamp()` construction/format).
-- notes: Extraction would leave a re-export shim in `agents_core` so its existing importers keep
-  working. 2 sightings across 2 repos — 1 more needed. MeadowLark's
-  `src/logging_utils.py:get_local_timestamp` (a one-line stdlib local-timestamp format)
-  is adjacent but too thin to count as an independent solution; revisit if it grows. Check `zoneinfo`
-  coverage first — per the charter, anything stdlib already does well must not be reimplemented.
+  - MeadowLark/src/podcast_filtering.py:119-137 — 2026-09-16 — epoch-to-local-calendar-day display
+    formatter. Independent variation: input is a POSIX float rather than a datetime, and a missing
+    value renders as a sentinel string instead of raising. Converts via `astimezone()` before
+    `strftime`, and threads an injectable tzinfo (default `None` = system local) so the
+    UTC-vs-local conversion is testable without depending on the host machine's zone.
+- notes: 3 sightings across 3 repos — ripe for /genekit promote. Extraction would leave a re-export
+  shim in `agents_core` so its existing importers keep working. MeadowLark's
+  `src/logging_utils.py:get_local_timestamp` (a one-line stdlib local-timestamp format) is adjacent
+  but too thin to count as its own sighting. A recurring failure shape across sightings: code that
+  is correct about the *instant* (epoch/UTC) but wrong about the *calendar day* shown to a person,
+  because the conversion to local time was skipped or deferred inconsistently — worth calling out
+  explicitly in the promoted module's docstring/examples. Check `zoneinfo` coverage first — per the
+  charter, anything stdlib already does well must not be reimplemented.
 
 ## url-helpers — URL normalization and comparison
 - status: candidate
@@ -158,6 +166,15 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - notes: platformdirs covers this; the open question is whether a dozen lines of stdlib
   beats a dependency for apps that need only one of its directories. Revisit at a second
   sighting.
+
+## capped-backoff — capped exponential backoff delay for a poll loop
+- status: candidate
+- language: python
+- sightings:
+  - quicknote/backend/src/quicknote/tagger/worker.py:39-41 — 2026-09-16 — pure function
+    base*2**n capped; paired with warn-once/debug-while-failing/info-on-recovery log
+    transitions in an asyncio poll loop.
+- notes: 1 of 3 sightings.
 
 ## release-update-check — throttled check of a project's published releases from a running app
 - status: candidate
