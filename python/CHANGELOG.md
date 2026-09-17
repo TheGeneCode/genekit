@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+## py-v0.3.0 — 2026-09-17
+
+### Added
+- **`genekit.tz`** — timezone-aware conversion and display, promoted from the `tz-helpers` ledger
+  candidate (3 sightings across 3 repos). Four public symbols:
+  - `local_tz()` — the system local zone as a real `tzinfo`, never `None`, for the cases where a
+    zone has to be *passed* somewhere rather than inferred. Documents loudly that it is a
+    fixed-offset snapshot, not a DST-aware zone.
+  - `resolve_tz(name, *, fallback=None, strict=False)` — an IANA name, an existing `tzinfo`, or
+    blank, to a `tzinfo`. A zone name is user input, so an unresolvable one warns and falls back
+    rather than crashing; `strict=True` opts into raising, normalised to `ZoneInfoNotFoundError`.
+  - `to_tz(value, tz=None, *, assume=timezone.utc)` — conversion with an explicit decision about
+    naive input. The stdlib treats naive as *system local*; the common real source of naive
+    datetimes is naive-UTC storage, so the interpretation is a parameter instead of a host detail.
+  - `format_timestamp(value, tz=None, *, fmt=DEFAULT_FORMAT, assume=timezone.utc, default="")` —
+    epoch, datetime or `None` to a display string, always via an explicit zone conversion. A
+    missing or unrepresentable instant renders as `default`; a wrong *type* still raises.
+  - `DEFAULT_FORMAT` — `"%Y-%m-%d %H:%M:%S"`, matching `genekit.logging.VERBOSE_DATEFMT` so a log
+    line and a rendered field do not disagree.
+
+  The recurring defect the module exists to prevent, seen across the sightings: code correct about
+  the *instant* but wrong about the *calendar day* shown to a person, because the conversion to a
+  local zone was skipped or frozen at the wrong moment.
+- **`genekit[tzdata]` extra.** CPython ships no IANA tz database on Windows; without one *every*
+  `zoneinfo` lookup fails, including `"UTC"`. The extra supplies one. Without it `resolve_tz`
+  warns and degrades to the system local zone — the same graceful-fallback shape as `genekit[rich]`.
+  `tzdata` is also a dev dependency so the real-IANA tests run everywhere instead of skipping on
+  Windows; the database-absent path is covered by monkeypatch.
+
+### Notes
+- `requires-python` is unchanged at `>=3.10`: the module uses `timezone.utc`, not the 3.11+
+  `datetime.UTC` alias.
+
 ## py-v0.2.2 — 2026-09-03
 
 Re-tagged from py-v0.2.1: that tag was cut before the version-bump commit merged, so it

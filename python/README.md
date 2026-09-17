@@ -16,9 +16,15 @@ pull requests are not being taken.
 | Module | Provides | Since |
 |---|---|---|
 | `logging` | opinionated root config (rich/plain/none console on stderr), optional size-based file rotation, scoped per-file routing, dedicated file loggers | py-v0.1.0 |
+| `tz` | timezone resolution that degrades instead of crashing, explicit naive-input policy, epoch/datetime display formatting that always converts first | py-v0.3.0 |
 
 The rich console needs the `rich` extra — `uv add "genekit[rich] @ git+..."`. Without it,
 `console="rich"` degrades silently to a plain stderr handler.
+
+`genekit.tz` needs an IANA tz database to resolve zone names. CPython ships one on Linux and macOS
+but not on Windows, where without it *every* lookup fails — including `"UTC"`. Add the `tzdata`
+extra there — `uv add "genekit[tzdata] @ git+..."`. Without it, `resolve_tz` logs a warning and
+degrades to the system local zone.
 
 ## Consumers registry
 
@@ -33,3 +39,4 @@ reality is worse than no registry, because the next break will trust it.
 | `logging` | TTS | py-v0.1.0 |
 | `logging` | MeadowLark | py-v0.1.0 |
 | `logging` | personal-agents (price-tracker) | py-v0.2.0 |
+| `logging` | quicknote | py-v0.2.2 |

@@ -1,6 +1,6 @@
 [project]
 name = "genekit"
-version = "0.2.2"
+version = "0.3.0"
 description = "Personal cross-app shared library (Python) — opinionated glue for decisions worth making once."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,9 +17,20 @@ Charter = "https://github.com/TheGeneCode/genekit/blob/main/CHARTER.md"
 
 [project.optional-dependencies]
 rich = ["rich>=13"]
+# CPython ships no IANA tz database on Windows; without one every zoneinfo lookup fails and
+# genekit.tz degrades to the system local zone. See genekit/tz.py.
+tzdata = ["tzdata>=2024.1"]
 
 [dependency-groups]
-dev = ["pytest>=8", "hypothesis>=6", "ruff", "tomli>=2; python_version < '3.11'"]
+dev = [
+    "pytest>=8",
+    "hypothesis>=6",
+    "ruff",
+    "tomli>=2; python_version < '3.11'",
+    # Not a runtime dependency: it makes the real-IANA tests run everywhere rather than
+    # skipping on Windows. The tz-database-absent path is covered by monkeypatch instead.
+    "tzdata>=2024.1",
+]
 
 [build-system]
 requires = ["hatchling"]
