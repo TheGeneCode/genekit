@@ -93,7 +93,11 @@ Dimension G — format_timestamp: ``fmt`` and ``default``
 | G4   | fmt with unicode         | unicode preserved in output                 |
 | G5   | default="" (default)     | "" for None                                 |
 | G6   | default="(unknown)"      | "(unknown)" for None                        |
-| G7   | fmt="%Q" / "%" (invalid) | ValueError — a caller bug, not a default    |
+| G7   | fmt="%Q" / "%" / "%-d"   | ValueError on every OS — a caller bug       |
+| G8   | each portable directive  | identical literal text on every OS          |
+| G9   | "%%Y" / "%%%Y"           | escaped percent then literal/directive text |
+| G10  | literal containing NUL   | passed through untouched, never hits C      |
+| G11  | arbitrary text w/o "%"   | property: output equals the input verbatim  |
 
 Dimension H — the calendar-day defect this module exists to prevent
 ------------------------------------------------------------------
@@ -446,9 +450,24 @@ def test_a_malformed_format_raises_rather_than_rendering_as_default() -> None:
     """G7: the companion to the wrong-type rule — ``default`` means "unknown value", not "bug".
 
     A typo in a format string would otherwise become a column that is permanently blank, with the
-    sentinel indistinguishable from a genuinely missing timestamp.
+    sentinel indistinguishable from a genuinely missing timestamp. Must hold on every OS: glibc
+    copies an unknown directive through verbatim where the Windows UCRT raises, and the glibc-only
+    extensions below would otherwise work on Linux and break on Windows.
     """
-    for fmt in ("%Q", "%"):
+    for fmt in (
+        "%Q",
+        "%",
+        "%Y-%",
+        "%-d",
+        "%P",
+        "%k",
+        "%s",
+        "%:z",
+        "%#d",
+        "%E",
+        "%年",
+        "%\U0001f600",  # non-BMP directive char: a single Python code point, never a surrogate pair
+    ):
         with pytest.raises(ValueError):
             format_timestamp(datetime(2026, 1, 15, 12, 0), UTC, fmt=fmt, default="unreached")
 
@@ -568,6 +587,54 @@ def test_aware_datetime_is_converted() -> None:
 def test_format_is_a_parameter(fmt: str, expected: str) -> None:
     """G1-G4: the default is opinionated, and every consumer can override it."""
     assert format_timestamp(datetime(2026, 1, 15, 12, 0), UTC, fmt=fmt) == expected
+
+
+def test_every_portable_directive_renders_the_same_text_on_every_platform() -> None:
+    """G8: the accepted set is neither too narrow nor platform-dependent.
+
+    Expected values are literal, not ``datetime.strftime`` echoed back, so a leg whose C library
+    renders one of these differently fails here instead of shipping an OS-specific column.
+    """
+    moment = datetime(2026, 1, 5, 3, 4, 5, tzinfo=UTC)
+    expected = {
+        "a": "Mon", "A": "Monday", "b": "Jan", "B": "January", "c": "Mon Jan  5 03:04:05 2026",
+        "C": "20", "d": "05", "D": "01/05/26", "e": " 5", "f": "000000", "F": "2026-01-05",
+        "g": "26", "G": "2026", "h": "Jan", "H": "03", "I": "03", "j": "005", "m": "01",
+        "M": "04", "n": "\n", "p": "AM", "r": "03:04:05 AM", "R": "03:04", "S": "05", "t": "\t",
+        "T": "03:04:05", "u": "1", "U": "01", "V": "02", "w": "1", "W": "01", "x": "01/05/26",
+        "X": "03:04:05", "y": "26", "Y": "2026", "z": "+0000", "Z": "UTC", "%": "%",
+    }  # fmt: skip
+    for code, text in expected.items():
+        assert format_timestamp(moment, UTC, fmt=f"<%{code}>") == f"<{text}>", code
+
+
+@pytest.mark.parametrize(
+    ("fmt", "expected"),
+    [
+        pytest.param("%%Y", "%Y", id="G9-escaped-percent-then-literal"),
+        pytest.param("%%%Y", "%2026", id="G9-escaped-percent-then-directive"),
+    ],
+)
+def test_escaped_percent_advances_the_tokenizer_by_two(fmt: str, expected: str) -> None:
+    """G9: ``%%`` must consume exactly its own two characters, not one or three.
+
+    ``"%%Y"`` is an escaped percent followed by the plain letter ``Y`` — never the year directive.
+    ``"%%%Y"`` is the same escape immediately followed by a real ``%Y``. An off-by-one in how far
+    the scan advances past ``%%`` would misalign the next token and either swallow the following
+    directive into a literal or treat a literal character as a directive.
+    """
+    assert format_timestamp(datetime(2026, 1, 15, 12, 0), UTC, fmt=fmt) == expected
+
+
+def test_nul_byte_in_a_literal_is_passed_through_untouched() -> None:
+    """G10: proves the fix's actual mechanism — literal text never reaches C ``strftime``.
+
+    A NUL terminates a C string early; formatting this through the old ``moment.strftime(fmt)``
+    path would silently truncate the output at the NUL on at least one platform. Routing the
+    literal through Python string concatenation instead must preserve it exactly.
+    """
+    result = format_timestamp(datetime(2026, 1, 15, 12, 0), UTC, fmt="a\x00b-%Y")
+    assert result == "a\x00b-2026"
 
 
 def test_default_format_matches_the_logging_module() -> None:
@@ -743,3 +810,14 @@ def test_property_format_timestamp_agrees_with_to_tz(value: float, tz: timezone 
 def test_property_none_always_renders_as_default_whatever_it_is(default: str) -> None:
     """Including empty and unicode — the sentinel is returned verbatim, never formatted."""
     assert format_timestamp(None, default=default) == default
+
+
+@given(fmt=st.text(max_size=200).filter(lambda s: "%" not in s))
+def test_property_a_format_with_no_directive_passes_through_verbatim(fmt: str) -> None:
+    """G11: with no ``%`` the tokenizer loop never fires, so this is only the final append.
+
+    Generated over arbitrary text — including NUL, control characters, and non-BMP code points —
+    rather than the handful of hand-picked literals in G3/G4/G10, so an off-by-one that drops or
+    duplicates a trailing slice would show up regardless of which characters happen to be there.
+    """
+    assert format_timestamp(datetime(2026, 1, 15, 12, 0), UTC, fmt=fmt) == fmt

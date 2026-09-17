@@ -47,6 +47,13 @@ renders the platform's long zone name instead.
 # a config file.
 _LOOKUP_ERRORS = (KeyError, ValueError, TypeError, OSError)
 
+# The directives :func:`format_timestamp` accepts: the C89 and C99 sets plus Python's own ``%f``,
+# ``%z`` and ``%Z`` — exactly those that render identically on glibc and the Windows UCRT across the
+# supported interpreters. Platform strftime cannot be the validator: glibc copies an unknown
+# directive into the output verbatim while the UCRT raises, and glibc-only extensions (``%-d``,
+# ``%P``, ``%k``, ``%s``) plus 3.12's ``%:z`` would pass on one OS and raise on another.
+_PORTABLE_DIRECTIVES = frozenset("aAbBcCdDeFfgGhHIjmMnprRStTuUVwWxXyYzZ%")
+
 
 def local_tz() -> tzinfo:
     """Return the system local zone as a real :class:`~datetime.tzinfo`, never ``None``.
@@ -281,8 +288,11 @@ def format_timestamp(
     Raises:
         TypeError: If ``value`` is neither a datetime, a real number, nor ``None``. :class:`bool` is
             rejected too: ``True`` is never a meaningful instant.
-        ValueError: If ``fmt`` is not a valid :meth:`~datetime.datetime.strftime` format. A bad
-            format is a caller bug, not an unknown value, so it is not absorbed into ``default``.
+        ValueError: If ``fmt`` holds a directive outside the portable C89/C99 set (plus ``%f``,
+            ``%z``, ``%Z``), including a trailing lone ``%``. Platform-only extensions such as
+            ``%-d`` are rejected on every OS so a format never works on one and breaks on another.
+            A bad format is a caller bug, not an unknown value, so it is not absorbed into
+            ``default``.
 
     Example:
         >>> from datetime import datetime, timezone
@@ -311,7 +321,28 @@ def format_timestamp(
         moment = to_tz(moment, tz, assume=assume)
     except (OSError, OverflowError):
         return default
-    # Deliberately unguarded: strftime raises ValueError only for a malformed ``fmt``, which is a
-    # caller bug of the same kind as a wrong ``value`` type. Swallowing it into ``default`` would
-    # turn a typo in a format string into a column that is silently blank forever.
-    return moment.strftime(fmt)
+    # Deliberately unguarded: a malformed ``fmt`` is a caller bug of the same kind as a wrong
+    # ``value`` type. Swallowing it into ``default`` would turn a typo in a format string into a
+    # column that is silently blank forever.
+    return _render(moment, fmt)
+
+
+def _render(moment: datetime, fmt: str) -> str:
+    """Format ``moment`` with ``fmt``, validating directives and never passing literals to C.
+
+    Literal text is copied through untouched because Windows CPython before 3.12 encodes the whole
+    format with the locale codec, so any character outside e.g. cp1252 raised UnicodeEncodeError.
+    Each directive is rendered by its own ``strftime`` call once checked against
+    :data:`_PORTABLE_DIRECTIVES`, so a bad format raises on every platform alike.
+    """
+    parts: list[str] = []
+    start = 0
+    while (percent := fmt.find("%", start)) != -1:
+        parts.append(fmt[start:percent])
+        directive = fmt[percent : percent + 2]
+        if len(directive) < 2 or directive[1] not in _PORTABLE_DIRECTIVES:
+            raise ValueError(f"Unsupported strftime directive {directive!r} in format {fmt!r}")
+        parts.append(moment.strftime(directive))
+        start = percent + 2
+    parts.append(fmt[start:])
+    return "".join(parts)
