@@ -73,7 +73,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     candidate for `/genekit adopt`. An external fork was surveyed and excluded as not our code.
 
 ## tz-helpers — timezone-aware datetime construction and conversion
-- status: ripe
+- status: promoted (genekit.tz, py-v0.3.0)
 - language: python
 - sightings:
   - personal-agents/packages/agents-core/src/agents_core/tz.py — 2026-07-16 — battle-tested in
@@ -85,14 +85,22 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     value renders as a sentinel string instead of raising. Converts via `astimezone()` before
     `strftime`, and threads an injectable tzinfo (default `None` = system local) so the
     UTC-vs-local conversion is testable without depending on the host machine's zone.
-- notes: 3 sightings across 3 repos — ripe for /genekit promote. Extraction would leave a re-export
-  shim in `agents_core` so its existing importers keep working. MeadowLark's
-  `src/logging_utils.py:get_local_timestamp` (a one-line stdlib local-timestamp format) is adjacent
-  but too thin to count as its own sighting. A recurring failure shape across sightings: code that
-  is correct about the *instant* (epoch/UTC) but wrong about the *calendar day* shown to a person,
-  because the conversion to local time was skipped or deferred inconsistently — worth calling out
-  explicitly in the promoted module's docstring/examples. Check `zoneinfo` coverage first — per the
-  charter, anything stdlib already does well must not be reimplemented.
+- notes: Promoted 2026-09-17 as `genekit.tz` (py-v0.3.0). `zoneinfo` and `astimezone` keep the tz
+  database, the DST arithmetic and the conversion; what was admissible is the policy around them,
+  which all three sightings hand-rolled — an unresolvable zone name degrades instead of raising, a
+  naive datetime means UTC rather than system local, and a missing instant renders as a placeholder.
+  Shipped as `local_tz`, `resolve_tz`, `to_tz`, `format_timestamp`. A `now_in(tz)` helper was
+  designed and dropped: `datetime.now(resolve_tz(name))` is already correct and a wrapper for it
+  would only save typing. MeadowLark's `src/logging_utils.py:get_local_timestamp` stayed adjacent
+  and uncounted. The IANA database is absent on Windows, so zone lookup sits behind a `tzdata`
+  extra with the documented fallback.
+  - migrate: MeadowLark done 2026-09-17 at py-v0.3.0 — `format_timestamp` behind a thin shim that
+    keeps the app's own name and placeholder, so no call site changed. Accepted: an unrepresentable
+    timestamp no longer routes through the app's own exception log.
+  - migrate: personal-agents pending — its helper resolves a zone for a third-party scheduler and
+    has app-local importers, so it wants a re-export shim. Do it under `/genekit adopt`.
+  - migrate: remove-the-bloat pending — a fixed-zone "now" formatter; `to_tz` plus an explicit zone
+    covers it. Do it under `/genekit adopt`.
 
 ## url-helpers — URL normalization and comparison
 - status: candidate

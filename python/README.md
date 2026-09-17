@@ -37,6 +37,7 @@ reality is worse than no registry, because the next break will trust it.
 |---|---|---|
 | `logging` | remove-the-bloat | py-v0.1.0 |
 | `logging` | TTS | py-v0.1.0 |
-| `logging` | MeadowLark | py-v0.1.0 |
+| `logging` | MeadowLark | py-v0.3.0 |
 | `logging` | personal-agents (price-tracker) | py-v0.2.0 |
 | `logging` | quicknote | py-v0.2.2 |
+| `tz` | MeadowLark | py-v0.3.0 |
