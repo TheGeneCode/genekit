@@ -35,9 +35,10 @@ reality is worse than no registry, because the next break will trust it.
 
 | Module | Consumer repo | Pinned tag |
 |---|---|---|
-| `logging` | remove-the-bloat | py-v0.1.0 |
+| `logging` | remove-the-bloat | py-v0.3.1 |
 | `logging` | TTS | py-v0.1.0 |
-| `logging` | MeadowLark | py-v0.3.0 |
-| `logging` | personal-agents (price-tracker) | py-v0.2.0 |
-| `logging` | quicknote | py-v0.2.2 |
-| `tz` | MeadowLark | py-v0.3.0 |
+| `logging` | MeadowLark | py-v0.3.1 |
+| `logging` | personal-agents (price-tracker) | py-v0.3.1 |
+| `logging` | quicknote | py-v0.3.1 |
+| `tz` | MeadowLark | py-v0.3.1 |
+| `tz` | personal-agents | py-v0.3.1 |
