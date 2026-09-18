@@ -97,8 +97,9 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - migrate: MeadowLark done 2026-09-17 at py-v0.3.0 — `format_timestamp` behind a thin shim that
     keeps the app's own name and placeholder, so no call site changed. Accepted: an unrepresentable
     timestamp no longer routes through the app's own exception log.
-  - migrate: personal-agents pending — its helper resolves a zone for a third-party scheduler and
-    has app-local importers, so it wants a re-export shim. Do it under `/genekit adopt`.
+  - migrate: personal-agents done 2026-09-17 at py-v0.3.1 — `resolve_tz` behind a re-export shim;
+    `to_tz` and `format_timestamp` replace hand-rolled display conversions at call sites. Accepted:
+    an unknown zone in the web layer falls back instead of raising; the warning text changed.
   - migrate: remove-the-bloat pending — a fixed-zone "now" formatter; `to_tz` plus an explicit zone
     covers it. Do it under `/genekit adopt`.
 
@@ -183,6 +184,33 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     base*2**n capped; paired with warn-once/debug-while-failing/info-on-recovery log
     transitions in an asyncio poll loop.
 - notes: 1 of 3 sightings.
+
+## atomic-write — write a small file so a reader never sees a half-written result
+- status: ripe
+- language: python
+- sightings:
+  - Starling/src/starling/update_check.py:150-165 — 2026-09-18 — sibling temp file named with
+    the writer's pid, `write_text` then `os.replace`; every `OSError` swallowed and the temp
+    unlinked, because the caller is a best-effort throttle cache.
+  - MeadowLark/src/failed_downloads.py:76-90 — 2026-09-18 — fixed `.tmp` suffix sibling,
+    `Path.replace`; failure is logged through the app's exception logger and the temp removed,
+    never raised.
+  - evertold/backend/src/evertold/datadir_file.py:60-80 — 2026-09-18 — `NamedTemporaryFile`
+    in the target's directory with a unique name, then `Path.replace`, under a mint lock; unique
+    name chosen because Windows refuses to replace a file another thread still holds open.
+    Errors propagate.
+  - remove-the-bloat/src/remove_the_bloat/cache.py:42-56 — 2026-09-18 — `tempfile.mkstemp` in
+    the target's directory, `os.fdopen` write, `Path.replace`; on any `BaseException` the temp
+    is unlinked and the error re-raised. Written for concurrent readers.
+- notes: 4 sightings across 4 repos. The stdlib gives `os.replace` (atomic rename on POSIX and
+  Windows) and `tempfile`; what every sighting hand-rolls is the policy around it — same-directory
+  temp so the rename never crosses a filesystem, a unique-vs-fixed temp name (fixed collides under
+  concurrency and fails on Windows if a reader holds the file), cleanup of the temp on failure, and
+  whether failure raises or is swallowed. API sketch: `atomic_write_text(path, text, *,
+  encoding="utf-8", on_error="raise" | "ignore")` plus an `atomic_write_bytes` twin; unique temp
+  name always (pid + counter or `mkstemp`); `mkdir(parents=True)` of the parent as an option since
+  two sightings do it inline. JSON serialisation stays caller-side. The "swallow and log" variants
+  become `on_error="ignore"` plus the caller's own log line.
 
 ## release-update-check — throttled check of a project's published releases from a running app
 - status: candidate
