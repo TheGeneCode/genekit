@@ -186,7 +186,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - notes: 1 of 3 sightings.
 
 ## atomic-write — write a small file so a reader never sees a half-written result
-- status: ripe
+- status: promoted (genekit.atomic_write, py-v0.4.0)
 - language: python
 - sightings:
   - Starling/src/starling/update_check.py:150-165 — 2026-09-18 — sibling temp file named with
@@ -211,6 +211,12 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   name always (pid + counter or `mkstemp`); `mkdir(parents=True)` of the parent as an option since
   two sightings do it inline. JSON serialisation stays caller-side. The "swallow and log" variants
   become `on_error="ignore"` plus the caller's own log line.
+- migrate: MeadowLark pending — call sites already use tempfile.mkstemp cleanup; needs
+  atomic_write_text under /genekit adopt.
+- migrate: evertold pending — first-time genekit consumer; needs atomic_write_bytes under
+  /genekit adopt.
+- migrate: remove-the-bloat pending — local helper to be deleted in favor of atomic_write_text
+  under /genekit adopt.
 
 ## release-update-check — throttled check of a project's published releases from a running app
 - status: candidate
