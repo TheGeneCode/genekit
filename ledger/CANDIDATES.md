@@ -211,8 +211,9 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   name always (pid + counter or `mkstemp`); `mkdir(parents=True)` of the parent as an option since
   two sightings do it inline. JSON serialisation stays caller-side. The "swallow and log" variants
   become `on_error="ignore"` plus the caller's own log line.
-- migrate: MeadowLark pending — call sites already use tempfile.mkstemp cleanup; needs
-  atomic_write_text under /genekit adopt.
+- migrate: MeadowLark done 2026-09-19 — atomic_write_text replaces the app's local atomic-write helper at its call sites;
+  call-site edits, no shim; on_error="raise" kept so the existing exception logging
+  still gets the real exception.
 - migrate: evertold pending — first-time genekit consumer; needs atomic_write_bytes under
   /genekit adopt.
 - migrate: remove-the-bloat pending — local helper to be deleted in favor of atomic_write_text
