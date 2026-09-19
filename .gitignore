@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+.hypothesis/
+.qodo/
 dist/
 
 # Local planning notes; machine- and app-specific, not for publication.
