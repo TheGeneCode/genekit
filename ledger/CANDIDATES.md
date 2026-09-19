@@ -217,8 +217,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - migrate: evertold done 2026-09-19 — atomic_write_bytes replaces DataDirFile.read's inline
   NamedTemporaryFile write; call-site edit, no shim; on_error="raise" kept, matching the
   original's propagate-on-failure behaviour, now with cleanup it previously lacked.
-- migrate: remove-the-bloat pending — local helper to be deleted in favor of atomic_write_text
-  under /genekit adopt.
+- migrate: remove-the-bloat done 2026-09-19 — atomic_write_text replaces the deleted local _atomic_write_text helper; call-site edits, no shim; on_error="raise" default reproduces the deleted helper's always-re-raise behaviour exactly.
 - migrate: Starling done 2026-09-19 — atomic_write_text replaces write_state's inline
   temp-write; call-site edit, no shim; on_error="ignore" preserves the original swallow-silently
   behaviour.
