@@ -128,6 +128,9 @@ this code is that it gets written to a standard no single app would pay for.
 - **Types and lint.** Full type hints on every public signature. The package ships `py.typed`.
   `uv run ruff check .` reports **0 findings** — not "only warnings", zero.
   `uv run ruff format --check .` passes; CI runs both.
+- **Local gate.** `.githooks/pre-commit` runs the same two commands before a commit is created.
+  Enable it once per clone or worktree with `git config core.hooksPath .githooks` — CI alone only
+  catches drift after a push, and a fresh clone or worktree has no gate until this is set.
 - **Docstrings.** Every public function carries Args / Returns / Raises and **at least one runnable
   example**. Runnable means it works when pasted into a REPL, with no invented variables.
 - **Tests.** Happy path plus an edge matrix: empty, `None`, unicode, boundary values, and
