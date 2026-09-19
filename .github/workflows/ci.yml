@@ -36,6 +36,7 @@ jobs:
       - run: uv sync --locked
       # CHARTER.md § Quality gate: zero findings, not "only warnings".
       - run: uv run ruff check .
+      - run: uv run ruff format --check .
 
   test:
     name: py${{ matrix.python-version }} · ${{ matrix.extras }} · ${{ matrix.os }}
