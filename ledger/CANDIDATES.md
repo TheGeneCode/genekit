@@ -217,6 +217,9 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   /genekit adopt.
 - migrate: remove-the-bloat pending — local helper to be deleted in favor of atomic_write_text
   under /genekit adopt.
+- migrate: Starling done 2026-09-19 — atomic_write_text replaces write_state's inline
+  temp-write; call-site edit, no shim; on_error="ignore" preserves the original swallow-silently
+  behaviour.
 
 ## release-update-check — throttled check of a project's published releases from a running app
 - status: candidate
