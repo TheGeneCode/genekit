@@ -1,0 +1,8 @@
+#!/bin/sh
+# Mirrors the CI lint job (.github/workflows/ci.yml) so format/lint drift is caught
+# before commit, not only after push. Enable once per clone/worktree:
+#   git config core.hooksPath .githooks
+set -e
+cd "$(git rev-parse --show-toplevel)/python"
+uv run ruff check .
+uv run ruff format --check .
