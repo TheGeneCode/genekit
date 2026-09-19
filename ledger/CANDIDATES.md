@@ -214,8 +214,9 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - migrate: MeadowLark done 2026-09-19 — atomic_write_text replaces the app's local atomic-write helper at its call sites;
   call-site edits, no shim; on_error="raise" kept so the existing exception logging
   still gets the real exception.
-- migrate: evertold pending — first-time genekit consumer; needs atomic_write_bytes under
-  /genekit adopt.
+- migrate: evertold done 2026-09-19 — atomic_write_bytes replaces DataDirFile.read's inline
+  NamedTemporaryFile write; call-site edit, no shim; on_error="raise" kept, matching the
+  original's propagate-on-failure behaviour, now with cleanup it previously lacked.
 - migrate: remove-the-bloat pending — local helper to be deleted in favor of atomic_write_text
   under /genekit adopt.
 - migrate: Starling done 2026-09-19 — atomic_write_text replaces write_state's inline

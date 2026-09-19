@@ -45,3 +45,4 @@ reality is worse than no registry, because the next break will trust it.
 | `tz` | personal-agents | py-v0.3.1 |
 | `atomic_write` | Starling | py-v0.4.0 |
 | `atomic_write` | MeadowLark | py-v0.4.0 |
+| `atomic_write` | evertold | py-v0.4.0 |
