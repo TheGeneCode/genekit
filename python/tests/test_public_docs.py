@@ -65,7 +65,7 @@ def test_consumers_registry_still_names_every_consumer() -> None:
     registry = readme.split("## Consumers registry", 1)
     assert len(registry) == 2, "no '## Consumers registry' section in python/README.md"
     body = registry[1]
-    for consumer in ("remove-the-bloat", "TTS", "MeadowLark", "personal-agents"):
+    for consumer in ("remove-the-bloat", "Starling", "MeadowLark", "personal-agents"):
         assert consumer in body, f"consumers registry no longer names {consumer!r}"
 
 
