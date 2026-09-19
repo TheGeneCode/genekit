@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## py-v0.4.0 — 2026-09-19
+
+### Added
+- **`genekit.atomic_write`** — write a file so a reader never sees a half-written result,
+  promoted from the `atomic-write` ledger candidate (4 independent sightings across Starling,
+  MeadowLark, evertold, and remove-the-bloat, each hand-rolling write-tmp-then-`os.replace`). Two
+  public symbols:
+  - `atomic_write_text(path, text, *, encoding="utf-8", mkdir=False, on_error="raise") -> bool` —
+    writes `text` to a uniquely named sibling temp file (`tempfile.mkstemp`) and replaces `path`
+    in one atomic rename, so a reader always sees the whole previous version or the whole new one,
+    never a truncated or half-written file.
+  - `atomic_write_bytes(path, data, *, mkdir=False, on_error="raise") -> bool` — the same
+    guarantee for a `bytes` payload, with no encoding or newline translation.
+
+  Both fix the recurring defects found across the 4 sightings: a fixed-suffix temp name (e.g.
+  `{name}.tmp`) collides under concurrent writers and interleaves payloads, and cleaning up only
+  on `OSError` (or not at all) leaks a `.tmp` file on any other failure. The temp name is always
+  unique, cleanup runs on *any* exception, and whether a failed write raises or is swallowed is
+  the explicit `on_error` parameter rather than a hardcoded choice.
+
 ## py-v0.3.1 — 2026-09-17
 
 Supersedes py-v0.3.0, whose tag CI run failed: `format_timestamp` handed `fmt` straight to the
