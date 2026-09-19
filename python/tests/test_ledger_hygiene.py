@@ -980,11 +980,9 @@ _BLOCK_ALPHABET = string.ascii_letters + string.digits
     loc=st.text(alphabet=_LOC_ALPHABET, min_size=1, max_size=40),
     date=st.dates(),
     note=st.text(min_size=1, max_size=120).filter(
-        lambda s: s.strip() == s
-        and s != ""
-        and "\n" not in s
-        and "\r" not in s
-        and "\u2014" not in s
+        lambda s: (
+            s.strip() == s and s != "" and "\n" not in s and "\r" not in s and "\u2014" not in s
+        )
     ),
 )
 def test_canonical_sighting_line_always_parses(loc: str, date: dt.date, note: str) -> None:

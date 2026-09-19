@@ -230,9 +230,7 @@ def add_file_handler(
         >>> handler = add_file_handler(Path(tempfile.mkdtemp()) / "run.log")
         >>> get_logger("demo").info("captured to console and file")
     """
-    handler = _make_file_handler(
-        path, level, rotate_bytes=rotate_bytes, backup_count=backup_count
-    )
+    handler = _make_file_handler(path, level, rotate_bytes=rotate_bytes, backup_count=backup_count)
     logging.getLogger().addHandler(handler)
     return handler
 

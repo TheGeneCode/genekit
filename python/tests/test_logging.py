@@ -434,9 +434,7 @@ def test_two_dedicated_loggers_same_path_write_independently(tmp_path):
 
 
 def _root_file_handler() -> logging.Handler:
-    file_handlers = [
-        h for h in logging.getLogger().handlers if isinstance(h, logging.FileHandler)
-    ]
+    file_handlers = [h for h in logging.getLogger().handlers if isinstance(h, logging.FileHandler)]
     assert len(file_handlers) == 1
     return file_handlers[0]
 

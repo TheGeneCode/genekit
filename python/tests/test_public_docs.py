@@ -98,9 +98,7 @@ def test_ledger_plex_sighting_survives_the_migration_status_correction() -> None
     assert "migrate: Plex done" not in ledger, (
         "the reverted Plex migration note still claims 'done'"
     )
-    assert "migrate: Plex pending" in ledger, (
-        "the Plex migration note no longer records 'pending'"
-    )
+    assert "migrate: Plex pending" in ledger, "the Plex migration note no longer records 'pending'"
 
 
 class TestWrongBranchUrlRegex:
@@ -203,7 +201,7 @@ def test_contributing_relative_links_are_not_subject_to_the_absolute_link_rule()
     assert "(ledger/CANDIDATES.md)" in contributing
     assert "github.com" not in contributing.lower()
 
-    packaging_metadata_test = (
-        PYTHON_ROOT / "tests" / "test_packaging_metadata.py"
-    ).read_text(encoding="utf-8")
+    packaging_metadata_test = (PYTHON_ROOT / "tests" / "test_packaging_metadata.py").read_text(
+        encoding="utf-8"
+    )
     assert "CONTRIBUTING" not in packaging_metadata_test
