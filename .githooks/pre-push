@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Block pushing lines that name a private repo or this machine's profile path (dev backlog #28).
+# Allowed paths name consumer repos by design (ledger sightings, registry, their hygiene tests).
+scanner="$HOME/.claude/scripts/check_public_history.py"
+if [ -f "$scanner" ]; then
+  C:/Python314/python.exe "$scanner" --pre-push \
+    --allow-path 'ledger/*' \
+    --allow-path 'python/README.md' \
+    --allow-path 'python/CHANGELOG.md' \
+    --allow-path 'python/tests/test_ledger_hygiene.py' \
+    --allow-path 'python/tests/test_public_docs.py' \
+    --allow-path 'scripts/verify-anonymous-install.ps1' || exit 1
+else
+  echo "pre-push: $scanner not found, public-history check skipped" >&2
+fi
