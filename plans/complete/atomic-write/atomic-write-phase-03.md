@@ -1,3 +1,25 @@
+## Notes for future plans (from Phase 2)
+- Check existing tests that monkeypatch the *old* write mechanism before assuming "no new test
+  needed" holds. `atomic_write_text` writes via `os.fdopen(fd, ...).write(...)` (from
+  `tempfile.mkstemp`), not `Path.write_text`, and replaces via `os.replace`/`Path.replace`, not a
+  hand-rolled pid-suffixed temp name. A pre-existing test that patches `Path.write_text` to force a
+  write-time failure goes silently vacuous (still green, no longer testing the failure branch) once
+  the call site switches to `atomic_write_text` — Phase 2 hit exactly this in Starling's
+  `test_write_state_unwritable_is_silent` and had to repatch onto `os.fdopen`. Grep each consumer's
+  tests for monkeypatches on `write_text`, `os.replace`/`Path.replace`, or the old temp-filename
+  shape (e.g. a `.{pid}.tmp` glob) before trusting them to still exercise the same branch.
+  Reason: `os` is a shared module singleton, so a patch on the consumer's own `os` reference does
+  reach calls made inside `genekit.atomic_write` — but only for the exact attribute genekit
+  actually calls, which differs from what the old hand-rolled implementation called.
+- `atomic_write_text`'s unique-per-call `mkstemp` temp file (vs. the old PID-only temp name) can
+  fix a real same-process concurrent-write-loss bug as a side effect of migration, not just
+  refactor it — worth calling out in the report if a consumer has a similar white-box race test.
+- The registry table in `python/README.md` has one row per (module, consumer) pair, but a
+  consumer's git pin is one tag for the whole `genekit` package. Bumping a consumer's pin for a new
+  module (e.g. adding `atomic_write`) also moves every other row for that same consumer
+  (`logging`, `tz`, ...) to the new tag — update all of that consumer's rows together, not just the
+  one for the module being adopted.
+
 # Plan: Adopt `genekit.atomic_write` in MeadowLark
 
 ## Phase Context
