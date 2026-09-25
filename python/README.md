@@ -43,6 +43,7 @@ reality is worse than no registry, because the next break will trust it.
 | `logging` | quicknote | py-v0.3.1 |
 | `tz` | MeadowLark | py-v0.4.0 |
 | `tz` | personal-agents | py-v0.3.1 |
+| `tz` | remove-the-bloat | py-v0.4.0 |
 | `atomic_write` | Starling | py-v0.4.0 |
 | `atomic_write` | MeadowLark | py-v0.4.0 |
 | `atomic_write` | evertold | py-v0.4.0 |
