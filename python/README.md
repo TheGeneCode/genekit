@@ -36,7 +36,7 @@ reality is worse than no registry, because the next break will trust it.
 
 | Module | Consumer repo | Pinned tag |
 |---|---|---|
-| `logging` | remove-the-bloat | py-v0.3.1 |
+| `logging` | remove-the-bloat | py-v0.4.0 |
 | `logging` | Starling | py-v0.4.0 |
 | `logging` | MeadowLark | py-v0.4.0 |
 | `logging` | personal-agents (price-tracker) | py-v0.3.1 |
