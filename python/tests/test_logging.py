@@ -16,6 +16,7 @@ from hypothesis import strategies as st
 from genekit.logging import (
     VERBOSE_DATEFMT,
     VERBOSE_FMT,
+    _resolve_level,
     _ScopeFilter,
     _validate_rotation,
     add_file_handler,
@@ -609,3 +610,96 @@ def test_validate_rotation_property(rotate_bytes, backup_count):
     else:
         with pytest.raises(ValueError):
             _validate_rotation(rotate_bytes, backup_count)
+
+
+def _call_with_bad_level(entry: str, log_file: Path, **extra: int) -> None:
+    """Invoke one public entry point that opens ``log_file`` with an unknown level."""
+    if entry == "add_file_handler":
+        add_file_handler(log_file, level="nope", **extra)
+    elif entry == "add_scoped_file_handler":
+        add_scoped_file_handler(log_file, "lbl", level="nope")
+    else:
+        configure_logging(level="nope", console="none", log_file=log_file, **extra)
+
+
+_FILE_ENTRY_POINTS = ["add_file_handler", "add_scoped_file_handler", "configure_logging"]
+
+
+@pytest.mark.parametrize("entry", _FILE_ENTRY_POINTS)
+def test_invalid_level_creates_no_directory_or_file(tmp_path, entry):
+    """Level is resolved before mkdir/open: a bad name must not leak a dir or an open file."""
+    log_file = tmp_path / "not-yet" / "deeper" / "run.log"
+    with pytest.raises(ValueError, match="Unknown level"):
+        _call_with_bad_level(entry, log_file)
+    assert not (tmp_path / "not-yet").exists()
+
+
+@pytest.mark.parametrize("entry", ["add_file_handler", "configure_logging"])
+def test_invalid_level_beats_invalid_rotation_with_no_side_effects(tmp_path, entry):
+    """Level error is raised first even when rotation args are also bad."""
+    log_file = tmp_path / "not-yet" / "run.log"
+    with pytest.raises(ValueError, match="Unknown level"):
+        _call_with_bad_level(entry, log_file, rotate_bytes=-1, backup_count=-1)
+    assert not (tmp_path / "not-yet").exists()
+
+
+@pytest.mark.parametrize("with_log_file", [False, True])
+def test_configure_logging_invalid_level_leaves_root_untouched(tmp_path, with_log_file):
+    """basicConfig(force=True) must not run for a bad level: old handlers stay open."""
+    old_file = tmp_path / "old.log"
+    configure_logging("WARNING", console="plain", log_file=old_file)
+    root = logging.getLogger()
+    handlers_before = list(root.handlers)
+    file_handler = next(h for h in handlers_before if isinstance(h, logging.FileHandler))
+    new_file = tmp_path / "sub" / "new.log" if with_log_file else None
+    with pytest.raises(ValueError, match="Unknown level"):
+        configure_logging("nope", console="plain", log_file=new_file)
+    assert root.handlers == handlers_before
+    assert root.level == logging.WARNING
+    assert file_handler.stream is not None
+    assert not (tmp_path / "sub").exists()
+
+
+@pytest.mark.parametrize("bad", ["", " INFO ", "10", "Level 10", "ß"])
+def test_resolve_level_rejects_non_names(bad):
+    with pytest.raises(ValueError, match="Unknown level"):
+        _resolve_level(bad)
+
+
+def test_resolve_level_accepts_stdlib_aliases():
+    assert _resolve_level("warn") == logging.WARNING
+    assert _resolve_level("Fatal") == logging.CRITICAL
+    assert _resolve_level("notset") == logging.NOTSET
+
+
+def test_resolve_level_resolves_custom_registered_name(monkeypatch):
+    # Swap in copies of the stdlib's global registries so addLevelName leaves nothing behind.
+    monkeypatch.setattr(logging, "_nameToLevel", dict(logging._nameToLevel))
+    monkeypatch.setattr(logging, "_levelToName", dict(logging._levelToName))
+    logging.addLevelName(25, "NOTICE")
+    assert _resolve_level("notice") == 25
+    assert _resolve_level("NOTICE") == 25
+
+
+@given(text=st.text(max_size=20))
+def test_resolve_level_property_matches_registry_or_raises(text):
+    """Returns the registry value for text.upper() when registered, otherwise ValueError."""
+    expected = logging._nameToLevel.get(text.upper())
+    if expected is None:
+        with pytest.raises(ValueError, match="Unknown level"):
+            _resolve_level(text)
+    else:
+        assert _resolve_level(text) == expected
+
+
+@given(
+    name=st.sampled_from(
+        ["DEBUG", "INFO", "WARN", "WARNING", "ERROR", "FATAL", "CRITICAL", "NOTSET"]
+    ),
+    flips=st.lists(st.booleans(), min_size=8, max_size=8),
+)
+def test_resolve_level_known_names_case_insensitive_property(name, flips):
+    mixed = "".join(
+        c.lower() if flip else c.upper() for c, flip in zip(name.ljust(8, "_"), flips, strict=True)
+    ).rstrip("_")
+    assert _resolve_level(mixed) == logging._nameToLevel[name]

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Fixed
+- **An invalid `level` no longer leaks an open log file.** `add_file_handler` and
+  `add_scoped_file_handler` opened the file before applying the level, so a bad level name raised
+  with the stream still open — closed only by GC, and the file stayed locked on Windows until
+  then. The level is now resolved before the directory is created or the file opened; a bad name
+  leaves nothing behind.
+- **`configure_logging` with an invalid `level` no longer half-reconfigures root.**
+  `basicConfig(force=True)` closed the existing handlers and attached the new ones before applying
+  the level, so a bad name raised with the previous configuration already gone. The level is now
+  validated before any handler is built or touched.
+
+Both raise the same `ValueError` as before; only the side effects on failure changed. The test
+suite now runs with `filterwarnings = ["error"]`.
+
 ## py-v0.4.0 — 2026-09-19
 
 ### Added

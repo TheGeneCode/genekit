@@ -83,6 +83,37 @@ def _validate_rotation(rotate_bytes: int, backup_count: int) -> None:
         )
 
 
+def _resolve_level(level: str) -> int:
+    """Resolve a level name, case-insensitively, to its numeric value — before anything is built.
+
+    Validating up front keeps a bad name from failing *after* a side effect: a file handler opens
+    its stream in the constructor, so a later ``setLevel`` failure would leak an open file (locked
+    on Windows until GC), and ``basicConfig(force=True)`` closes the old handlers and attaches the
+    new ones before it applies the level, so a late failure leaves root half-reconfigured. Names
+    registered with :func:`logging.addLevelName` resolve too.
+
+    Args:
+        level: Level name, case-insensitive (e.g. ``"INFO"``, ``"debug"``).
+
+    Returns:
+        The numeric level.
+
+    Raises:
+        ValueError: If ``level`` is not a registered level name.
+
+    Example:
+        >>> from genekit.logging import _resolve_level
+        >>> _resolve_level("debug")
+        10
+    """
+    # A str argument maps name -> number (documented legacy behaviour, stable since 3.4.2);
+    # getLevelNamesMapping() would be the explicit API but needs 3.11.
+    resolved = logging.getLevelName(level.upper())
+    if not isinstance(resolved, int):
+        raise ValueError(f"Unknown level: {level!r}")
+    return resolved
+
+
 def _make_file_handler(
     path: Path,
     level: str,
@@ -95,9 +126,11 @@ def _make_file_handler(
     """Build a UTF-8 file handler with a verbose, greppable (non-rich) formatter.
 
     A positive ``rotate_bytes`` yields a size-rotating handler; otherwise a plain file handler that
-    grows without bound. Rotation arguments are validated here, so every caller — present and
-    future — is protected from a half-configured rotation regardless of its own checks.
+    grows without bound. The level and rotation arguments are validated before the directory is
+    created or the file opened, so a bad argument leaves nothing behind — no directory, no open
+    stream — and every caller is protected regardless of its own checks.
     """
+    numeric_level = _resolve_level(level)
     _validate_rotation(rotate_bytes, backup_count)
     path.parent.mkdir(parents=True, exist_ok=True)
     handler: logging.Handler
@@ -107,7 +140,7 @@ def _make_file_handler(
         )
     else:
         handler = logging.FileHandler(path, encoding="utf-8")
-    handler.setLevel(level.upper())
+    handler.setLevel(numeric_level)
     handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
     return handler
 
@@ -166,8 +199,9 @@ def configure_logging(
         None.
 
     Raises:
-        ValueError: If ``console`` is not one of ``"rich"``, ``"plain"``, ``"none"``; if
-            ``console="none"`` is combined with ``log_file=None`` (that configuration has zero
+        ValueError: If ``level`` is not a registered level name (raised before any existing
+            handler is touched); if ``console`` is not one of ``"rich"``, ``"plain"``, ``"none"``;
+            if ``console="none"`` is combined with ``log_file=None`` (that configuration has zero
             handlers and would silently discard every record); if ``rotate_bytes`` or
             ``backup_count`` is negative, or exactly one of them is positive (rotation
             half-configured); or if ``rotate_bytes`` > 0 without a ``log_file`` to rotate.
@@ -177,6 +211,7 @@ def configure_logging(
         >>> configure_logging("DEBUG", console="plain")
         >>> get_logger("demo").info("ready")
     """
+    numeric_level = _resolve_level(level)
     if console not in ("rich", "plain", "none"):
         raise ValueError(f"console must be 'rich', 'plain' or 'none', got {console!r}")
     if console == "none" and log_file is None:
@@ -194,7 +229,7 @@ def configure_logging(
                 log_file, level, rotate_bytes=rotate_bytes, backup_count=backup_count
             )
         )
-    logging.basicConfig(level=level.upper(), handlers=handlers, force=True)
+    logging.basicConfig(level=numeric_level, handlers=handlers, force=True)
 
 
 def add_file_handler(
@@ -219,8 +254,9 @@ def add_file_handler(
         The attached handler, so callers can ``removeHandler``/``close`` it later.
 
     Raises:
-        ValueError: If ``rotate_bytes`` or ``backup_count`` is negative, or exactly one of them is
-            positive (rotation half-configured).
+        ValueError: If ``level`` is not a registered level name, if ``rotate_bytes`` or
+            ``backup_count`` is negative, or if exactly one of them is positive (rotation
+            half-configured). Nothing is created or opened when it raises.
 
     Example:
         >>> import tempfile
@@ -266,6 +302,10 @@ def add_scoped_file_handler(path: Path, label: str, level: str = "INFO") -> logg
 
     Returns:
         The attached handler, so callers can ``removeHandler``/``close`` it later.
+
+    Raises:
+        ValueError: If ``level`` is not a registered level name. Nothing is created or opened when
+            it raises.
 
     Example:
         >>> import tempfile
