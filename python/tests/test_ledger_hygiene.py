@@ -230,9 +230,33 @@ _SECRET_SHAPED = re.compile(
 # "Scale metrics about a private codebase. No counts of tests, lines, modules, files, importers, or
 # call sites." The ledger's own bookkeeping ("3 sightings", "2 repos") is not a scale metric about
 # anyone's codebase, so the keyword list is deliberately closed rather than "digit + noun".
+# A count may sit up to two words from its noun ("3 in-repo call sites") or be spelled out ("a dozen
+# lines", "twice more"). Size, rate and preposition words never count as those two words, so "5 MB
+# per file" stays clean; a digit glued to a version, date or line range never opens a match, nor
+# does a quantity word inside a compound ("warn-once"). "once" itself is left out: in a note it is a
+# conjunction or retry vocabulary ("once more"), almost never a count. Ranges and k-shorthand count
+# ("3-5 files", "10k lines"); "passed"/"failed" must follow the count directly, since "2 sightings
+# passed review" is bookkeeping. A modifier word ("in-repo") must end at whitespace, so a long
+# hyphen run cannot be split between the two modifier slots — that split backtracks quadratically.
+_METRIC_NOUN = r"\b(?:tests?|lines?|modules?|files?|importers?|call sites?|LOC)\b"
+_RUN_OUTCOME = r"\b(?:passed|failed)\b"
+_DIGIT_COUNT = r"(?<![\w.,:/-])\d[\d,]*(?:\.\d+k|(?:[–-]\d[\d,]*)?k?)"
+_SPELLED_COUNT = (
+    r"(?<![\w-])"
+    r"(?:several|dozens\s+of|(?:a\s+)?(?:dozen|couple|handful)(?:\s+of)?)"
+    r"(?![\w-])"
+)
+_FILLER_WORD = (
+    r"(?:per|of|in|across|each|every|the|a|an|to|for|from|and|or|than|at|on|by|with"
+    r"|[kmgt]i?b|bytes?|ms|seconds?|minutes?|hours?)(?![\w-])"
+)
+_MODIFIER_WORD = r"[\s-]+(?!" + _FILLER_WORD + r")[a-z]+(?:-[a-z]+)*(?=\s)"
+_COUNTED_NOUN = (
+    r"(?:" + _DIGIT_COUNT + r"|" + _SPELLED_COUNT + r")[\s-]*\+?"
+    r"(?:(?:" + _MODIFIER_WORD + r"){0,2}[\s-]*" + _METRIC_NOUN + r"|[\s-]*" + _RUN_OUTCOME + r")"
+)
 _SCALE_METRIC = re.compile(
-    r"\b\d[\d,]*[\s-]*\+?[\s-]*"
-    r"(?:tests?|passed|failed|lines?|modules?|files?|importers?|call sites?|LOC)\b",
+    r"(?:" + _COUNTED_NOUN + r"|(?<![\w-])(?:twice|thrice)\s+more\b)",
     re.IGNORECASE,
 )
 
@@ -817,6 +841,20 @@ class TestScaleMetricRegex:
             "a 900-line module",
             "12-file diff",
             "3-module refactor",
+            "3 in-repo call sites",
+            "12 duplicated test files",
+            "1,200 untested lines",
+            "a dozen lines",
+            "a couple of tests",
+            "a handful of modules",
+            "several call sites",
+            "dozens of files",
+            "the same shape appears twice more",
+            "and thrice more elsewhere",
+            "about 3\ncall sites",
+            "10k lines",
+            "1.5k tests",
+            "3-5 files",
         ],
         ids=[
             "test-run-summary",
@@ -834,6 +872,20 @@ class TestScaleMetricRegex:
             "hyphenated-line-count-large",
             "hyphenated-file-count",
             "hyphenated-module-count",
+            "hyphenated-modifier-between",
+            "two-modifiers-between",
+            "modifier-with-comma-count",
+            "spelled-dozen",
+            "spelled-couple-of",
+            "spelled-handful-of",
+            "spelled-several",
+            "spelled-dozens-of",
+            "spelled-twice-more",
+            "spelled-thrice-more",
+            "count-wrapped-onto-next-line",
+            "k-shorthand",
+            "decimal-k-shorthand",
+            "count-range",
         ],
     )
     def test_catches_known_bad_metrics(self, text: str) -> None:
@@ -854,6 +906,21 @@ class TestScaleMetricRegex:
             "a window of clamp(elapsed * 0.25, 3s, 30s)",
             "TTS/articleReader.py:48-70,204-210",
             "spans file boundaries so the rate survives the stream switch",
+            "warn-once per file",
+            "warn-once log lines",
+            "rotates at 5 MB per file",
+            "a 5 MB log file",
+            "2 sightings across log files",
+            "py-v0.4.0 rewrote the files",
+            "TTS/articleReader.py:48-70,204-210 rewrote files",
+            "retries once more after a backoff",
+            "once both files are flushed",
+            "3 profiles",
+            "3 very old shared files",
+            "3 sightings in test files",
+            "py-v2 files",
+            "2 sightings passed review",
+            "3 " + "a-" * 5000,
         ],
         ids=[
             "rule-of-three-bookkeeping",
@@ -868,6 +935,21 @@ class TestScaleMetricRegex:
             "numeric-window-bounds",
             "sighting-coordinates",
             "file-noun-without-a-count",
+            "compound-once-before-preposition",
+            "compound-once-before-noun",
+            "size-per-file",
+            "size-unit-as-modifier",
+            "preposition-between",
+            "version-tag-before-noun",
+            "line-range-before-noun",
+            "retry-once-more",
+            "once-as-conjunction",
+            "noun-suffix-inside-word",
+            "three-modifiers-exceed-the-window",
+            "preposition-ends-modifier-chain",
+            "version-glued-digit-before-noun",
+            "run-outcome-needs-adjacent-count",
+            "long-hyphen-run-stays-linear",
         ],
     )
     def test_does_not_flag_ledger_vocabulary(self, text: str) -> None:

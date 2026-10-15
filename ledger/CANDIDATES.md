@@ -178,7 +178,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     folder, or the XDG state dir, each suffixed with an app name; deliberately separate
     from the app's user-facing data root, which may live in a synced folder. Hand-rolled
     to avoid a new wheel.
-- notes: platformdirs covers this; the open question is whether a dozen lines of stdlib
+- notes: platformdirs covers this; the open question is whether a small stdlib helper
   beats a dependency for apps that need only one of its directories. Revisit at a second
   sighting.
 
