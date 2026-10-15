@@ -69,6 +69,8 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - migrate: personal-agents (price-tracker) done 2026-07-17 at py-v0.2.0 — adopting its daemon
     logging drove adding optional size-based rotation (`rotate_bytes` / `backup_count`,
     both-or-neither) to the released module.
+  - migrate: quicknote done 2026-09-16 — adopted directly by a new worker entry point with no prior
+    app-local setup: `configure_logging` with size rotation, no shim. On py-v0.3.1 since 2026-09-17.
   - adopt-pending: one further repo has a hand-rolled implementation, found 2026-07-17 —
     candidate for `/genekit adopt`. An external fork was surveyed and excluded as not our code.
 
@@ -100,8 +102,8 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - migrate: personal-agents done 2026-09-17 at py-v0.3.1 — `resolve_tz` behind a re-export shim;
     `to_tz` and `format_timestamp` replace hand-rolled display conversions at call sites. Accepted:
     an unknown zone in the web layer falls back instead of raising; the warning text changed.
-  - migrate: remove-the-bloat pending — a fixed-zone "now" formatter; `to_tz` plus an explicit zone
-    covers it. Do it under `/genekit adopt`.
+  - migrate: remove-the-bloat done 2026-09-25 at py-v0.4.0 — `resolve_tz` (strict) for the fixed
+    zone plus `format_timestamp` on an aware UTC "now", no shim; the hand-rolled formatter is gone.
 
 ## url-helpers — URL normalization and comparison
 - status: candidate
@@ -112,7 +114,11 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - personal-agents/apps/price-tracker/src/price_tracker/utils.py:8-18 — 2026-07-17 —
     `site_label` (hostname extraction + www-strip for display) and `href_safe` (bracket
     percent-encoding). Same repo as the first sighting — repo count stays 1 of 2.
-- notes: 2 sightings, 1 repo — needs a sighting in a second repo. Surveyed 2026-07-17: MeadowLark
+  - personal-agents/packages/agents-core/src/agents_core/urls.py:61-76 — 2026-09-25 —
+    `host_matches`: dot-bounded host-equals-or-subdomain test, case-insensitive, root dot
+    stripped, empty domain never matches; consolidates hand-rolled `endswith("." + d)` checks
+    behind domain allowlists. Same repo — repo count stays 1 of 2.
+- notes: 3 sightings, 1 repo — needs a sighting in a second repo. Surveyed 2026-07-17: MeadowLark
   `src/url_utils.py` (per-service id extraction) and a second app's URL filter both encode
   app-specific inclusion decisions, not generic normalization — not counted. `urllib.parse` does
   the parsing; the admissible part is
@@ -202,25 +208,27 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - remove-the-bloat/src/remove_the_bloat/cache.py:42-56 — 2026-09-18 — `tempfile.mkstemp` in
     the target's directory, `os.fdopen` write, `Path.replace`; on any `BaseException` the temp
     is unlinked and the error re-raised. Written for concurrent readers.
-- notes: 4 sightings across 4 repos. The stdlib gives `os.replace` (atomic rename on POSIX and
-  Windows) and `tempfile`; what every sighting hand-rolls is the policy around it — same-directory
-  temp so the rename never crosses a filesystem, a unique-vs-fixed temp name (fixed collides under
-  concurrency and fails on Windows if a reader holds the file), cleanup of the temp on failure, and
-  whether failure raises or is swallowed. API sketch: `atomic_write_text(path, text, *,
-  encoding="utf-8", on_error="raise" | "ignore")` plus an `atomic_write_bytes` twin; unique temp
-  name always (pid + counter or `mkstemp`); `mkdir(parents=True)` of the parent as an option since
-  two sightings do it inline. JSON serialisation stays caller-side. The "swallow and log" variants
-  become `on_error="ignore"` plus the caller's own log line.
-- migrate: MeadowLark done 2026-09-19 — atomic_write_text replaces the app's local atomic-write helper at its call sites;
-  call-site edits, no shim; on_error="raise" kept so the existing exception logging
-  still gets the real exception.
-- migrate: evertold done 2026-09-19 — atomic_write_bytes replaces DataDirFile.read's inline
-  NamedTemporaryFile write; call-site edit, no shim; on_error="raise" kept, matching the
-  original's propagate-on-failure behaviour, now with cleanup it previously lacked.
-- migrate: remove-the-bloat done 2026-09-19 — atomic_write_text replaces the deleted local _atomic_write_text helper; call-site edits, no shim; on_error="raise" default reproduces the deleted helper's always-re-raise behaviour exactly.
-- migrate: Starling done 2026-09-19 — atomic_write_text replaces write_state's inline
-  temp-write; call-site edit, no shim; on_error="ignore" preserves the original swallow-silently
-  behaviour.
+- notes: Promoted 2026-09-19 as `genekit.atomic_write` (py-v0.4.0). `os.replace` (atomic rename
+  on POSIX and Windows) and `tempfile` do the mechanics; what was admissible is the policy all four
+  sightings hand-rolled around them — a same-directory temp so the rename never crosses a
+  filesystem, a unique temp name always (a fixed suffix collides under concurrent writers and fails
+  on Windows while a reader holds the file), cleanup of the temp on any exception, and raise-or-
+  swallow as a parameter. Shipped as `atomic_write_text` and an `atomic_write_bytes` twin, each
+  with an opt-in parent `mkdir` and `on_error="raise" | "ignore"`, returning `False` only when an
+  ignored `OSError` left the target untouched. JSON serialisation stays caller-side; the
+  swallow-and-log variants become `on_error="ignore"` or the caller logging the raised error.
+  - migrate: Starling done 2026-09-19 at py-v0.4.0 — `atomic_write_text` replaces the throttle
+    cache's inline temp-write; call-site edit, no shim; `on_error="ignore"` keeps the original
+    swallow-silently behaviour.
+  - migrate: MeadowLark done 2026-09-19 at py-v0.4.0 — `atomic_write_text` replaces the app's local
+    helper at its call sites, no shim; `on_error="raise"` so the app's exception logging still gets
+    the real error.
+  - migrate: evertold done 2026-09-19 at py-v0.4.0 — `atomic_write_bytes` replaces an inline
+    named-temp-file write; call-site edit, no shim; still propagates on failure, now with the temp
+    cleanup it lacked. First genekit dependency for this repo.
+  - migrate: remove-the-bloat done 2026-09-19 at py-v0.4.0 — `atomic_write_text` replaces the
+    deleted local helper; call-site edits, no shim; the default `on_error="raise"` reproduces its
+    always-re-raise behaviour.
 
 ## release-update-check — throttled check of a project's published releases from a running app
 - status: candidate
@@ -234,3 +242,82 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     so the notice comes from cache and the process start path never blocks on the network.
 - notes: the version-tuple comparison and the "any failure is None" fetch are the shared
   core; presentation and throttling differ per app shape and should stay caller-side.
+
+## sqlite-wal-enable — switch a SQLite file shared across processes to WAL without racing
+- status: candidate
+- language: python
+- sightings:
+  - personal-agents/packages/agents-core/src/agents_core/sqlite_wal.py:6-44 — 2026-09-24 —
+    `enable_wal` over stdlib sqlite3: read the journal mode first; try the switch; on
+    a busy error (the switch's read-to-write lock upgrade bypasses the busy handler) wait out
+    the holder with BEGIN IMMEDIATE, roll back, re-read, switch again only if still not WAL.
+    Refuses an open transaction, where the switch is silently ignored.
+- notes: returns the resulting mode rather than raising for in-memory databases.
+
+## sql-like-literal-escape — escape user text for a literal "contains" SQL LIKE match
+- status: candidate
+- language: php
+- sightings:
+  - diet/searchParser.php:28-59 — 2026-09-25 — static helper pair:
+    single-pass strtr map escapes the escape char, percent and underscore, then wraps in
+    percent signs; companion emits the predicate with an explicit ESCAPE clause using a
+    non-backslash char so behaviour is independent of the server's backslash-escape SQL mode.
+- notes: a Python port would take the escape char as a parameter; driver-agnostic.
+
+## http-json-get — GET-only JSON fetch over stdlib urllib with header-borne auth
+- status: candidate
+- language: python
+- sightings:
+  - remove-the-bloat/src/remove_the_bloat/pipeline/plex.py:49-64,99-128 — 2026-09-25 — opener with proxies disabled and redirects refused; credential sent in a request header and scrubbed from every error message; transport, HTTP-status and decode errors normalised into one app exception raised without chaining; injectable fetch callable for tests.
+- notes: single sighting so far.
+
+## mapped-drive-unc — spell a Windows mapped-drive path by its UNC share root
+- status: candidate
+- language: python
+- sightings:
+  - remove-the-bloat/src/remove_the_bloat/pipeline/plex.py:299-321 — 2026-09-29 — resolves only the drive root with os.path.realpath (per-drive functools.cache, root kept on OSError) and re-attaches the unresolved remainder, so symlinks below the root are never followed; returns ordered, de-duplicated lookup keys, the as-typed spelling first.
+- notes: 1 of 3 sightings. Alternative mechanism: ctypes WNetGetConnectionW.
+
+## ip-network-key — normalize a client IP to a stable trust identity
+- status: candidate
+- language: php
+- sightings:
+  - diet/authPolicy.php:10-37 — 2026-10-10 — pure function; validates with the stdlib IP filter (rejects zone ids and padding), folds IPv4-mapped IPv6 to the IPv4 key, truncates other IPv6 to its /64 prefix via inet_pton/inet_ntop canonical text; invalid input yields null.
+- notes: single sighting so far. Python port would use the stdlib ipaddress module.
+
+## split-token-persistent-login — remember-me cookie as selector + hashed validator with rotation grace
+- status: candidate
+- language: php
+- sightings:
+  - diet/authPolicy.php:39-115 — 2026-10-10 — cookie is a lookup selector plus a random validator stored only as a SHA-256; pure decision function (expired / mismatch / rotate / ok) kept apart from the DB I/O; validator rotates at most daily with a short grace for the previous one; a wrong validator deletes the row as theft; idle and absolute lifetimes.
+- notes: single sighting so far; its cookie and DB I/O half sits in diet/auth.php:124-215. The
+  decision/I-O split is the reusable part; storage and cookie plumbing stay app-side.
+
+## oauth-loopback-receiver — installed-app OAuth redirect receiver on a loopback socket
+- status: candidate
+- language: php
+- sightings:
+  - personal-dashboard/app/Dashboard/Sources/GoogleHealth/SocketCallbackListener.php:32-101 — 2026-10-12 — stream socket bound to an ephemeral loopback port; accepts until a request carries the expected state (constant-time compare) plus a code or error, answers strays 404/400 and keeps waiting; every read capped by one overall deadline. PKCE S256 pair from random bytes sits in a separate helper.
+- notes: 1 of 3 sightings. The listener sits behind a start/await/stop interface so flows test with a fake.
+
+## civil-date-windows — split an inclusive civil-date span into bounded half-open windows on zone-local midnights
+- status: candidate
+- language: php
+- sightings:
+  - personal-dashboard/app/Dashboard/Sources/GoogleHealth/CivilWindows.php:25-48 — 2026-10-12 — splits an inclusive civil-date span into windows of at most N days, end exclusive, stepping with calendar addDays on zone-local midnights so a DST change never moves a boundary off midnight. First after last gives none; N below 1 raises.
+  - personal-dashboard/app/Dashboard/Sources/GitHubSource.php:87-113 — 2026-10-12 — same walk with a calendar-year step: windows chosen so an API's per-request span cap is never exceeded, the last one clamped to today in the owner's zone; a UTC instant is converted to that zone before its date is taken.
+- notes: 2 of 3 sightings. Both iterate contiguous windows over a date-ranged remote API. Variation is the step (fixed day count vs calendar year) and the inclusive vs half-open end.
+
+## locale-number-parse — displayed numeric string (grouping, percent, chosen decimal mark) to a float
+- status: candidate
+- language: php
+- sightings:
+  - personal-dashboard/app/Dashboard/Sources/Sheets/LocaleNumber.php:12-47 — 2026-10-13 — static parse of a spreadsheet's displayed number: strips space-like and apostrophe grouping, one leading or trailing percent sign and the Unicode minus; caller names the decimal mark and the other mark is accepted only as strict three-digit grouping, so ambiguous input returns null instead of a guess. Regex-validated before the float cast.
+- notes: 1 of 3 sightings. Returns null rather than guessing; callers log the rejected cell.
+
+## oauth-refresh-token-store — persist a rotating OAuth refresh token under a lock before using the access token
+- status: candidate
+- language: php
+- sightings:
+  - personal-dashboard/app/Dashboard/Sources/GoogleHealth/GoogleTokenStore.php:53-180 — 2026-10-13 — fresh-token check outside a cache lock; inside it re-reads the stored row so a token rotated by another process is never resent; a terminal grant error flags the row so later runs fail fast with zero requests; the new payload is written in one upsert before the access token is returned; bound to a single provider's client.
+- notes: 1 of 3 sightings.
