@@ -284,6 +284,29 @@ def test_ci_matrix_actually_exercises_the_declared_floor() -> None:
     )
 
 
+def test_ci_lint_interpreter_matches_basedpyright_python_version() -> None:
+    """basedpyright type-checks against ``pythonVersion`` but resolves imports in the env it runs
+    from. Dev dependencies are marker-gated (``tomli`` only installs below 3.11), so a lint job on
+    a newer interpreter than ``pythonVersion`` reports the gated import as unresolved — the exact
+    failure CI hit when the lint pin was 3.12 against ``pythonVersion = "3.10"``. Pin both to one
+    version, read from pyproject so they cannot drift.
+    """
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    start = re.search(r"^  lint:$", workflow, re.MULTILINE)
+    assert start is not None, "no '  lint:' job key found in ci.yml; the slice boundary moved"
+    end = re.search(r"^  test:$", workflow, re.MULTILINE)
+    assert end is not None, "no '  test:' job key found in ci.yml"
+    assert end.start() > start.start(), "ci.yml job order changed; the lint slice is inverted"
+
+    pinned = _CI_PYTHON_VERSION_SCALAR.findall(workflow[start.start() : end.start()])
+    assert pinned, "no python-version pin extracted from the lint job; the regex went stale"
+
+    configured = _load_pyproject()["tool"]["basedpyright"]["pythonVersion"]
+    assert pinned == [configured], (
+        f"lint job python-version {pinned} != [tool.basedpyright] pythonVersion {configured!r}"
+    )
+
+
 def _extract_versions(text: str) -> set[str]:
     """Same extraction algorithm as ``test_ci_matrix_actually_exercises_the_declared_floor``,
     factored out so the regex trio can be exercised directly against synthetic strings.

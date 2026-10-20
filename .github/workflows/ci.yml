@@ -28,9 +28,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          # ruff reads target-version from requires-python, not from the interpreter it runs
-          # on, so this pin is arbitrary and need not track the package floor.
-          python-version: "3.12"
+          # basedpyright type-checks against pythonVersion but resolves imports in THIS
+          # interpreter's env: the marker-gated tomli fallback only installs below 3.11, so the
+          # pin must equal [tool.basedpyright] pythonVersion or the 3.10 branch fails to resolve.
+          python-version: "3.10"
           enable-cache: true
           cache-dependency-glob: "python/uv.lock"
       # rich extra so basedpyright checks the RichHandler branch against real types.
