@@ -1,7 +1,7 @@
 # Promotion Ledger
 
-One `##` section per capability. Statuses: `candidate` (<3 sightings) → `ripe` (3+ sightings,
-awaiting /genekit promote) → `promoted` (module + first tag) or `rejected` (with reason).
+One `##` section per capability. Statuses: `candidate` (<3 sightings) → `ripe` (passes the
+ripeness check in [CHARTER.md § Admission](../CHARTER.md#admission-rule-of-three), awaiting /genekit promote) → `promoted` (module + first tag) or `rejected` (with reason).
 Agents append sightings during normal app work; only /genekit promote changes status to promoted.
 
 ```markdown
@@ -189,7 +189,10 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - quicknote/backend/src/quicknote/tagger/worker.py:39-41 — 2026-09-16 — pure function
     base*2**n capped; paired with warn-once/debug-while-failing/info-on-recovery log
     transitions in an asyncio poll loop.
-- notes: 1 of 3 sightings.
+  - potd/backend/src/potd/backoff.py:6-21 — 2026-10-17 — pure base*2**n capped, base and cap
+    both parameters; used for a short in-request retry ladder that skips non-idempotent calls
+    and for a per-item worker delay with a different cap per state.
+- notes: 2 sightings across 2 repos.
 
 ## atomic-write — write a small file so a reader never sees a half-written result
 - status: promoted (genekit.atomic_write, py-v0.4.0)
@@ -306,7 +309,11 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - sightings:
   - personal-dashboard/app/Dashboard/Sources/GoogleHealth/CivilWindows.php:25-48 — 2026-10-12 — splits an inclusive civil-date span into windows of at most N days, end exclusive, stepping with calendar addDays on zone-local midnights so a DST change never moves a boundary off midnight. First after last gives none; N below 1 raises.
   - personal-dashboard/app/Dashboard/Sources/GitHubSource.php:87-113 — 2026-10-12 — same walk with a calendar-year step: windows chosen so an API's per-request span cap is never exceeded, the last one clamped to today in the owner's zone; a UTC instant is converted to that zone before its date is taken.
-- notes: 2 of 3 sightings. Both iterate contiguous windows over a date-ranged remote API. Variation is the step (fixed day count vs calendar year) and the inclusive vs half-open end.
+  - potd/android/app/src/main/java/com/thegenecode/potd/media/DayWindow.kt:24-32 — 2026-10-20 — one civil day to half-open instant bounds via the zone-aware start of day for the day and for day+1 (calendar arithmetic, so a DST day is 23 or 25 hours and a skipped midnight resolves forward); a second, wider pair pads the span by a fixed duration. Kotlin, java.time.
+- notes: Re-examined 2026-10-20, not ripe. The two span-splitting sightings share one repo; the
+  third bounds a single day, which java.time's zone-aware start of day already does in one call, so
+  it is a different problem. No sighting is in a language genekit ships, so a promotion would have
+  no consumer to migrate. Needs a span-splitting sighting in a second repo.
 
 ## locale-number-parse — displayed numeric string (grouping, percent, chosen decimal mark) to a float
 - status: candidate
@@ -321,3 +328,19 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - sightings:
   - personal-dashboard/app/Dashboard/Sources/GoogleHealth/GoogleTokenStore.php:53-180 — 2026-10-13 — fresh-token check outside a cache lock; inside it re-reads the stored row so a token rotated by another process is never resent; a terminal grant error flags the row so later runs fail fast with zero requests; the new payload is written in one upsert before the access token is returned; bound to a single provider's client.
 - notes: 1 of 3 sightings.
+
+## json-redact — replace secret-bearing keys anywhere in a decoded JSON tree before it is logged or saved
+- status: candidate
+- language: python
+- sightings:
+  - potd/backend/scripts/spikes/synospike.py:61-79 — 2026-10-16 — recursive walk over dicts and lists replacing values under a fixed key-name set with a marker, applied before a response is written to disk; paired with a stable-placeholder anonymiser (per-kind alias tables, extension kept on file names, path segments aliased unless structural) for turning captures into test fixtures.
+- notes: single sighting so far. Spike script, not app code. A library version would take the key set and marker as parameters.
+
+
+## spa-static-fallback — serve a built single-page app from a web framework, falling back to the shell for client routes
+- status: candidate
+- language: python
+- sightings:
+  - quicknote/backend/src/quicknote/app.py:39-66 — 2026-10-18 — catch-all path route registered after the API router; API-prefixed paths stay 404; resolve-then-is_relative_to containment before FileResponse; the shell is served with no-cache so a stale index never points at vanished hashed assets.
+  - evertold/backend/src/evertold/main.py:248-290 — 2026-10-18 — standalone helper rather than a nested route; also catches ValueError/OSError from resolve and is_file (NUL bytes, over-long segments, revoked permissions) and answers 503 when the static root itself stops resolving.
+- notes: remake/backend/src/remake/app.py is a copy of the first sighting with the second's resolve guard folded in, so it is a consumer, not an independent sighting. API sketch: a function taking the app, the static root and the reserved API prefix.

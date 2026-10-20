@@ -21,6 +21,14 @@ date. Independent means three places that genuinely solved the same problem on t
 implementation imported three times, and not three call sites of the same function. Until the third
 sighting lands, the capability stays `candidate` and no module is written.
 
+**Ripe is a judgment, not a row count.** Before an entry is marked `ripe`, check each sighting
+against the others. It counts only if it solves the same problem at the same shape: a helper that
+shares one library call with the others but answers a different question is a neighbour, not a
+sighting. Sightings may be in any language, because the capability is what is counted, but at least
+one sighting repo must be in a language genekit has a language dir for. A promotion needs a consumer
+to migrate, and one with none is a speculative helper. The `ripe` mark records this check in the
+entry's notes: which sightings count, and which repo will consume the module.
+
 There are **no speculative helpers and no "while I'm here" additions**. If a function looks certain
 to be needed by a future app, that certainty costs nothing to test: leave it in the app, and let the
 third sighting prove it. Code that enters on prediction rather than evidence is the exact material
@@ -127,8 +135,9 @@ this code is that it gets written to a standard no single app would pay for.
 
 - **Types and lint.** Full type hints on every public signature. The package ships `py.typed`.
   `uv run ruff check .` reports **0 findings** — not "only warnings", zero.
-  `uv run ruff format --check .` passes; CI runs both.
-- **Local gate.** `.githooks/pre-commit` runs the same two commands before a commit is created.
+  `uv run ruff format --check .` passes. `uv run basedpyright` reports **0 errors** (config in
+  `python/pyproject.toml`); CI runs all three.
+- **Local gate.** `.githooks/pre-commit` runs the same three commands before a commit is created.
   Enable it once per clone or worktree with `git config core.hooksPath .githooks` — CI alone only
   catches drift after a push, and a fresh clone or worktree has no gate until this is set.
 - **Docstrings.** Every public function carries Args / Returns / Raises and **at least one runnable

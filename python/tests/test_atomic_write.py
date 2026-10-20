@@ -77,6 +77,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
+from typing import Any, Literal
 
 import pytest
 from hypothesis import given, settings
@@ -187,7 +188,9 @@ def test_on_error_ignore_returns_false_no_temp_left(
 
 
 @pytest.mark.parametrize("on_error", ["raise", "ignore"])
-def test_non_oserror_always_propagates(tmp_path: Path, on_error: str) -> None:
+def test_non_oserror_always_propagates(
+    tmp_path: Path, on_error: Literal["raise", "ignore"]
+) -> None:
     target = tmp_path / "f.txt"
 
     # atomic_write_text/bytes fix their own write callback, so the only caller-triggerable
@@ -269,7 +272,7 @@ def test_temp_names_are_unique_across_concurrent_writers(
     seen_names: list[str] = []
     real_mkstemp = tempfile_module.mkstemp
 
-    def _tracking_mkstemp(*args: object, **kwargs: object) -> tuple[int, str]:
+    def _tracking_mkstemp(*args: Any, **kwargs: Any) -> tuple[int, str]:
         fd, name = real_mkstemp(*args, **kwargs)
         seen_names.append(name)
         return fd, name

@@ -33,10 +33,12 @@ jobs:
           python-version: "3.12"
           enable-cache: true
           cache-dependency-glob: "python/uv.lock"
-      - run: uv sync --locked
+      # rich extra so basedpyright checks the RichHandler branch against real types.
+      - run: uv sync --locked --extra rich
       # CHARTER.md § Quality gate: zero findings, not "only warnings".
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - run: uv run basedpyright
 
   test:
     name: py${{ matrix.python-version }} · ${{ matrix.extras }} · ${{ matrix.os }}

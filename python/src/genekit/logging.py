@@ -149,8 +149,9 @@ def _make_console_handler(console: Literal["rich", "plain"]) -> logging.Handler:
     """Build the stderr console handler, falling back to plain when rich is unavailable."""
     if console == "rich":
         try:
-            from rich.console import Console
-            from rich.logging import RichHandler
+            # Optional extra: unresolvable in the bare env, which is the point of the guard.
+            from rich.console import Console  # pyright: ignore[reportMissingImports]
+            from rich.logging import RichHandler  # pyright: ignore[reportMissingImports]
         except ImportError:
             pass
         else:

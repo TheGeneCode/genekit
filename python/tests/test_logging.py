@@ -225,6 +225,7 @@ def test_dedicated_logger_reinit_single_handler(tmp_path):
     assert len(logger.handlers) == 1
     assert logger.handlers[0] is not first
     # FileHandler.close() drops its stream reference — the old handler is closed, not just detached.
+    assert isinstance(first, logging.FileHandler)
     assert first.stream is None
 
 

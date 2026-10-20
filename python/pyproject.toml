@@ -26,6 +26,7 @@ dev = [
     "pytest>=8",
     "hypothesis>=6",
     "ruff",
+    "basedpyright",
     "tomli>=2; python_version < '3.11'",
     # Not a runtime dependency: it makes the real-IANA tests run everywhere rather than
     # skipping on Windows. The tz-database-absent path is covered by monkeypatch instead.
@@ -54,6 +55,13 @@ inline-quotes = "double"
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.basedpyright]
+# Charter § Quality gate requires typed signatures; this is what verifies them. "basic" is the
+# floor, not the goal — tighten (standard, then strict on src/) once the tree stays clean.
+typeCheckingMode = "basic"
+include = ["src", "tests"]
+pythonVersion = "3.10"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

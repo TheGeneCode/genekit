@@ -42,7 +42,7 @@ def test_license_expression_is_mit() -> None:
 
 
 def test_license_file_recorded_without_parent_traversal() -> None:
-    recorded = metadata("genekit").get_all("License-File")
+    recorded = metadata("genekit").get_all("License-File") or []
     assert recorded == ["LICENSE"]
     assert all(".." not in entry for entry in recorded)
 
@@ -57,7 +57,7 @@ def test_license_text_ships_inside_the_installed_distribution() -> None:
 def test_author_is_attributed_without_an_email() -> None:
     md = metadata("genekit")
     assert md["Author"] == "TheGeneCode"
-    assert md.get("Author-email") is None
+    assert "Author-email" not in md
 
 
 def test_repository_url_is_published() -> None:
