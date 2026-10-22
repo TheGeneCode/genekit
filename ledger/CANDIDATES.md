@@ -59,9 +59,9 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   in as `dedicated_file_logger`.
   - migrate: remove-the-bloat done 2026-07-16 — consumed through a re-export shim keeping the app's
     original names, so no call site changed.
-  - migrate: Plex pending — a previously recorded migration is not present in the repo; the app still
-    configures logging locally and its interpreter floor is below the library's. Re-do under
-    `/genekit adopt`.
+  - migrate: Plex done 2026-10-21 — `configure_logging` at each setup site, no shim; plain
+    console, and a file-only site uses `console="none"`. Records gained the library's timestamp,
+    level and logger columns.
   - migrate: Starling done 2026-07-16 — `dedicated_file_logger` replaces the app's usage logger, no shim.
   - migrate: MeadowLark done 2026-07-17 — `configure_logging` at both setup sites, no shim: the
     app's own exception and timestamp helpers are app decisions genekit does not cover. Required

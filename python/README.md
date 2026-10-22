@@ -41,6 +41,7 @@ reality is worse than no registry, because the next break will trust it.
 | `logging` | MeadowLark | py-v0.4.0 |
 | `logging` | personal-agents (price-tracker) | py-v0.3.1 |
 | `logging` | quicknote | py-v0.3.1 |
+| `logging` | Plex | py-v0.4.0 |
 | `tz` | MeadowLark | py-v0.4.0 |
 | `tz` | personal-agents | py-v0.3.1 |
 | `tz` | remove-the-bloat | py-v0.4.0 |
