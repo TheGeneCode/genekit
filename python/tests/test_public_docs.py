@@ -58,47 +58,29 @@ def test_contributing_exists_and_is_reachable_from_the_root_readme() -> None:
 def test_consumers_registry_still_names_every_consumer() -> None:
     """CHARTER.md requires migration notes to name every consumer in the registry. A future
     redaction pass that empties the name column would silently break that clause, so pin the
-    decision made in this plan: the remaining names stay. Plex was removed 2026-09-01: its
-    migration is not present in the repo, so listing it made the registry assert something false.
+    decision made in this plan: the remaining names stay. Plex, removed 2026-09-01 when its
+    migration was not in the repo, returned 2026-10-21 once it was.
     """
     readme = (PYTHON_ROOT / "README.md").read_text(encoding="utf-8")
     registry = readme.split("## Consumers registry", 1)
     assert len(registry) == 2, "no '## Consumers registry' section in python/README.md"
     body = registry[1]
-    for consumer in ("remove-the-bloat", "Starling", "MeadowLark", "personal-agents"):
+    for consumer in ("remove-the-bloat", "Starling", "MeadowLark", "personal-agents", "Plex"):
         assert consumer in body, f"consumers registry no longer names {consumer!r}"
 
 
-def test_consumers_registry_no_longer_names_plex() -> None:
-    """Companion negative to the test above. That test only pins which names *do* stay; without
-    this, a future edit that re-adds the row (e.g. copy-pasting a sibling ``logging`` row) would
-    pass every existing check silently, since none of them assert Plex's absence.
-    """
-    readme = (PYTHON_ROOT / "README.md").read_text(encoding="utf-8")
-    registry = readme.split("## Consumers registry", 1)
-    assert len(registry) == 2, "no '## Consumers registry' section in python/README.md"
-    body = registry[1]
-    assert "Plex" not in body, (
-        "Plex reappeared in the consumers registry after its 2026-09-01 removal"
-    )
-
-
 def test_ledger_plex_sighting_survives_the_migration_status_correction() -> None:
-    """The 2026-09-01 correction touched only the ``migrate: Plex`` bullet under ``logging-setup``;
-    the sighting line (the rule-of-three evidence the entry's ``ripe``/``promoted`` status rests on)
-    was deliberately left untouched. Pin both halves so a future edit to one can't silently take out
-    the other: the sighting survives verbatim, and the migration note now reads ``pending``, not
-    ``done``.
+    """The sighting line (the rule-of-three evidence the ``logging-setup`` entry's
+    ``ripe``/``promoted`` status rests on) must survive verbatim, and the ``migrate: Plex`` bullet
+    now records the 2026-10-21 ``done``. Pin both halves so a future edit to one can't silently
+    take out the other.
     """
     ledger = (REPO_ROOT / "ledger" / "CANDIDATES.md").read_text(encoding="utf-8")
     sighting = "Plex/randomNextEpisode.py:15 — 2026-07-16 — `logging.basicConfig` one-liner."
     assert sighting in ledger, (
         "the Plex sighting line (rule-of-three evidence) was altered or removed"
     )
-    assert "migrate: Plex done" not in ledger, (
-        "the reverted Plex migration note still claims 'done'"
-    )
-    assert "migrate: Plex pending" in ledger, "the Plex migration note no longer records 'pending'"
+    assert "migrate: Plex done" in ledger, "the Plex migration note no longer records 'done'"
 
 
 class TestWrongBranchUrlRegex:

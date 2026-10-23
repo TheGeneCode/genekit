@@ -162,7 +162,15 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - remove-the-bloat — 2026-07-16 — app config file plus an env-var override naming its location.
   - personal-agents/packages/agents-core/src/agents_core/config.py — 2026-07-16 — config loading for
     agent apps.
-- notes: 2 sightings across 2 repos — one short of ripe. The app-specific file name and env-var
+  - Plex/plex_common.py:28-64 — 2026-10-21 — frozen dataclass built from a defaults dict, overlaid
+    by python-dotenv `dotenv_values` of a dotenv file beside the module, then by os.environ per
+    key; empty values skipped; one module-level instance. Written independently for standalone
+    scripts.
+- notes: Ripeness checked 2026-10-21 at 3 sightings across 3 repos — not ripe. The agents-core and
+  Plex sightings share a shape (per-key env over a dotenv file over defaults), but each is a thin
+  layer on a mature library (pydantic-settings, python-dotenv); a genekit module would only
+  re-wrap them. The remove-the-bloat sighting is a neighbour: an env var picks the file location.
+  Earlier note: 2 sightings across 2 repos — one short of ripe. The app-specific file name and env-var
   prefix must become parameters — hardcoding either is exactly the kind of thing the charter
   forbids. Compare against `tomllib` + `os.environ` before promoting. Partial match
   surveyed 2026-07-17: MeadowLark `src/config.py:_resolve_path` is env-var override with hardcoded
@@ -344,3 +352,34 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - quicknote/backend/src/quicknote/app.py:39-66 — 2026-10-18 — catch-all path route registered after the API router; API-prefixed paths stay 404; resolve-then-is_relative_to containment before FileResponse; the shell is served with no-cache so a stale index never points at vanished hashed assets.
   - evertold/backend/src/evertold/main.py:248-290 — 2026-10-18 — standalone helper rather than a nested route; also catches ValueError/OSError from resolve and is_file (NUL bytes, over-long segments, revoked permissions) and answers 503 when the static root itself stops resolving.
 - notes: remake/backend/src/remake/app.py is a copy of the first sighting with the second's resolve guard folded in, so it is a consumer, not an independent sighting. API sketch: a function taking the app, the static root and the reserved API prefix.
+
+## uuid7 — time-ordered version-7 UUID generator
+- status: candidate
+- language: python
+- sightings:
+  - remake/backend/src/remake/makes/ids.py:15-32 — 2026-10-21 — hand-rolled because the stdlib `uuid` has no v7 before 3.14: 48-bit millisecond timestamp shifted over random bytes, then version and RFC 4122 variant bits forced; paired with a validator that parses and checks `.version == 7`.
+- notes: 1 of 3 sightings. A TypeScript twin exists in another app, which does not count toward a Python candidate. Revisit when the interpreter floor reaches a stdlib `uuid7`; promotion then reduces to the validator.
+
+## sqlite-add-missing-columns — additive schema migration for a stdlib sqlite3 table
+- status: candidate
+- language: python
+- sightings:
+  - Plex/vidSpaceIndexer.py:120-125 — 2026-10-21 — reads existing column names with PRAGMA table_info, then ALTER TABLE ADD COLUMN for each name in a declared tuple that is absent; nullable, one affinity, never renames, drops or retypes. Runs after CREATE TABLE IF NOT EXISTS so fresh and legacy files share one path, and before the indexes and views that reference the added columns.
+- notes: single sighting so far. A library version would take the table and a name-to-type mapping.
+
+## ssrf-safe-fetch — fetch a user-supplied URL so DNS and redirects can't reach private networks
+- status: candidate
+- language: python
+- sightings:
+  - remake/backend/src/remake/importing/fetch.py:96-312 — 2026-10-22 — resolve inside the HTTP transport's network backend; refuse unless every answer is global after unwrapping mapped/6to4/Teredo/NAT64 forms; connect to the vetted address so TLS still checks the hostname; re-vet each hand-followed redirect; stream the body against a size cap under one deadline; ignore proxy env.
+- notes: 1 of 3 sightings. API sketch: an address predicate plus a transport and a page-fetch function taking timeout, size cap and redirect limit.
+
+## sqlite-verified-snapshot — copy a live WAL SQLite database consistently and prove the copy is sound
+- status: ripe
+- language: python
+- sightings:
+  - quicknote/backend/src/quicknote/ops/migrate.py:25-52 — 2026-10-22 — single `VACUUM INTO` statement on a closing() connection (safe beside a WAL writer, compacted, refuses an existing target so a stamp collision fails loudly); `PRAGMA integrity_check` runs on the copy, not the source; raises on anything but ok; used as a gate before migrations.
+  - potd/backend/src/potd/ops/migrate.py:26-67 — 2026-10-22 — same shape as the first: `VACUUM INTO` a stamped file, integrity check on the copy, RuntimeError on failure; also gates a pre-migration step, with the target path quoted into the statement as a literal.
+  - evertold/backend/src/evertold/checkpoint/store.py:168-224 — 2026-10-22 — independent variation: stdlib `sqlite3` online backup API instead of `VACUUM INTO`, integrity check on the copy, a failed copy kept as evidence; named restorable checkpoints with metadata and an automatic safety copy before restore.
+  - remake/backend/src/remake/ops/snapshot.py:26-124 — 2026-10-22 — one function behind a pre-migration gate, a nightly backup and a restore safety copy; `VACUUM INTO` a UTC-stamped name, integrity check on the copy, a bad copy removed; gzip through an atomic write; retention and newest-backup lookup both read the stamp from the file name.
+- notes: ripeness is the snapshot-then-verify core; the API sketch is `snapshot(db_path, out_dir, prefix)` returning the verified copy path. Compression, retention and restore stay caller-side, though stamp-based prune/latest helpers are a plausible second function.
