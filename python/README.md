@@ -41,13 +41,20 @@ reality is worse than no registry, because the next break will trust it.
 | `logging` | Starling | py-v0.4.0 |
 | `logging` | MeadowLark | py-v0.4.0 |
 | `logging` | personal-agents (price-tracker) | py-v0.3.1 |
-| `logging` | quicknote | py-v0.3.1 |
+| `logging` | quicknote | py-v0.5.0 |
 | `logging` | Plex | py-v0.4.0 |
-| `logging` | remake | py-v0.4.0 |
+| `logging` | remake | py-v0.5.0 |
+| `logging` | potd | py-v0.5.0 |
 | `tz` | MeadowLark | py-v0.4.0 |
 | `tz` | personal-agents | py-v0.3.1 |
 | `tz` | remove-the-bloat | py-v0.4.0 |
 | `atomic_write` | Starling | py-v0.4.0 |
 | `atomic_write` | MeadowLark | py-v0.4.0 |
-| `atomic_write` | evertold | py-v0.4.0 |
+| `atomic_write` | evertold | py-v0.5.0 |
 | `atomic_write` | remove-the-bloat | py-v0.4.0 |
+| `atomic_write` | potd | py-v0.5.0 |
+| `atomic_write` | remake | py-v0.5.0 |
+| `sqlite_snapshot` | potd | py-v0.5.0 |
+| `sqlite_snapshot` | quicknote | py-v0.5.0 |
+| `sqlite_snapshot` | remake | py-v0.5.0 |
+| `sqlite_snapshot` | evertold | py-v0.5.0 |

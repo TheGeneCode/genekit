@@ -70,7 +70,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     logging drove adding optional size-based rotation (`rotate_bytes` / `backup_count`,
     both-or-neither) to the released module.
   - migrate: quicknote done 2026-09-16 — adopted directly by a new worker entry point with no prior
-    app-local setup: `configure_logging` with size rotation, no shim. On py-v0.3.1 since 2026-09-17.
+    app-local setup: `configure_logging` with size rotation, no shim. On py-v0.5.0 since 2026-10-23.
   - adopt-pending: one further repo has a hand-rolled implementation, found 2026-07-17 —
     candidate for `/genekit adopt`. An external fork was surveyed and excluded as not our code.
 
@@ -390,7 +390,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   a failed copy removed or set aside so retention never picks it. Shipped as `stamped_snapshot`,
   `verified_snapshot`, `verify_sqlite`; `method` keeps the page-exact backup for evidence copies
   and old SQLite. Compression, retention and restore stay caller-side.
-  - migrate: potd pending — pre-migration gate to call `stamped_snapshot`.
-  - migrate: quicknote pending — pre-migration gate to call `stamped_snapshot`; pin crosses py-v0.4.0.
-  - migrate: remake pending — snapshot helper and restore check to call `stamped_snapshot` and `verify_sqlite`.
-  - migrate: evertold pending — evidence copies to call `verified_snapshot` with `method="backup"`.
+  - migrate: potd done 2026-10-23 at py-v0.5.0 — `stamped_snapshot` behind the app's own snapshot function, kept as the gate's test seam. Accepted: a stamp collision raises FileExistsError, and a copy that fails verification is removed.
+  - migrate: quicknote done 2026-10-23 at py-v0.5.0 — `stamped_snapshot` behind the app's own snapshot function, kept as the gate's test seam; pin moved up from py-v0.3.1. Accepted: a stamp collision raises FileExistsError, and a failed copy is removed.
+  - migrate: remake done 2026-10-23 at py-v0.5.0 — `stamped_snapshot` behind the app's snapshot helper (signature kept), `verify_sqlite` in its restore check, the stamp-format constant re-exported for its retention code. Accepted: a stamp collision raises FileExistsError.
+  - migrate: evertold done 2026-10-23 at py-v0.5.0 — `verified_snapshot` with method="backup", foreign-key check and keep_failed at both copy sites; `verify_sqlite` behind its (ok, detail) adapter. Accepted: a failed copy is kept as <name>.failed; a collision refuses instead of overwriting.
