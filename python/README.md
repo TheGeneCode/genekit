@@ -18,6 +18,7 @@ pull requests are not being taken.
 | `logging` | opinionated root config (rich/plain/none console on stderr), optional size-based file rotation, scoped per-file routing, dedicated file loggers | py-v0.1.0 |
 | `tz` | timezone resolution that degrades instead of crashing, explicit naive-input policy, epoch/datetime display formatting that always converts first | py-v0.3.0 |
 | `atomic_write` | write-then-replace so a reader never sees a half-written file; unique temp name always, cleanup on any failure, raise-or-ignore as a parameter | py-v0.4.0 |
+| `sqlite_snapshot` | consistent copy of a live (WAL) SQLite database, trusted only after the copy passes integrity_check: read-only source, never overwrites, failed copy removed or set aside, VACUUM INTO or page-exact backup | py-v0.5.0 |
 
 The rich console needs the `rich` extra — `uv add "genekit[rich] @ git+..."`. Without it,
 `console="rich"` degrades silently to a plain stderr handler.

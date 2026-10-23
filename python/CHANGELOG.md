@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+- Nothing yet.
+
+## py-v0.5.0 — 2026-10-23
+
+### Added
+- **`genekit.sqlite_snapshot`** — a consistent copy of a live (WAL) SQLite database, trusted only
+  after the *copy* passes `PRAGMA integrity_check`. Promoted from the `sqlite-verified-snapshot`
+  ledger candidate (4 independent sightings across potd, quicknote, remake and evertold: three
+  `VACUUM INTO` implementations and one online-backup variant, each verifying the copy). Five
+  public symbols:
+  - `verified_snapshot(source, destination, *, method="vacuum", check_foreign_keys=False,
+    keep_failed=False, mkdir=False) -> Path` — opens the source read-only, reserves `destination`
+    exclusively (never overwrites), copies with `VACUUM INTO ?` (`method="vacuum"`, compacted) or
+    `sqlite3.Connection.backup` (`method="backup"`, page-exact, works before SQLite 3.27), leaves
+    the copy in rollback-journal mode as one self-contained file, verifies it, and removes it — or
+    with `keep_failed=True` sets it aside as `<name>.failed` — if verification fails.
+  - `stamped_snapshot(source, out_dir, *, prefix=None, suffix=None, now=None, method="vacuum",
+    check_foreign_keys=False, keep_failed=False) -> Path` — the same, into
+    `out_dir/<prefix>-<UTC stamp><suffix>`; the stamp is fixed-width, so names sort
+    chronologically.
+  - `verify_sqlite(path, *, check_foreign_keys=False) -> None` — `integrity_check` (optionally
+    `foreign_key_check`) on a read-only open; raises on anything but `ok`.
+  - `SqliteVerificationError(RuntimeError)` — carries `.path`, `.detail` and `.kept`.
+  - `STAMP_FORMAT` — the `strptime` format of the stamp.
+
+  Fixes the recurring defects found across the sightings: a missing source silently created by
+  `sqlite3.connect` and then "verified" as an empty database; a failed copy left under its good
+  name where stamp-based retention would keep it; a destination path hand-quoted into
+  `VACUUM INTO`; and a `backup()` that overwrites an existing target and carries the source's WAL
+  header, so the copy grows `-wal`/`-shm` sidecars once opened.
+
 ### Fixed
 - **An invalid `level` no longer leaks an open log file.** `add_file_handler` and
   `add_scoped_file_handler` opened the file before applying the level, so a bad level name raised

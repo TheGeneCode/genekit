@@ -375,11 +375,22 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - notes: 1 of 3 sightings. API sketch: an address predicate plus a transport and a page-fetch function taking timeout, size cap and redirect limit.
 
 ## sqlite-verified-snapshot — copy a live WAL SQLite database consistently and prove the copy is sound
-- status: ripe
+- status: promoted (genekit.sqlite_snapshot, py-v0.5.0)
 - language: python
 - sightings:
   - quicknote/backend/src/quicknote/ops/migrate.py:25-52 — 2026-10-22 — single `VACUUM INTO` statement on a closing() connection (safe beside a WAL writer, compacted, refuses an existing target so a stamp collision fails loudly); `PRAGMA integrity_check` runs on the copy, not the source; raises on anything but ok; used as a gate before migrations.
   - potd/backend/src/potd/ops/migrate.py:26-67 — 2026-10-22 — same shape as the first: `VACUUM INTO` a stamped file, integrity check on the copy, RuntimeError on failure; also gates a pre-migration step, with the target path quoted into the statement as a literal.
   - evertold/backend/src/evertold/checkpoint/store.py:168-224 — 2026-10-22 — independent variation: stdlib `sqlite3` online backup API instead of `VACUUM INTO`, integrity check on the copy, a failed copy kept as evidence; named restorable checkpoints with metadata and an automatic safety copy before restore.
   - remake/backend/src/remake/ops/snapshot.py:26-124 — 2026-10-22 — one function behind a pre-migration gate, a nightly backup and a restore safety copy; `VACUUM INTO` a UTC-stamped name, integrity check on the copy, a bad copy removed; gzip through an atomic write; retention and newest-backup lookup both read the stamp from the file name.
-- notes: ripeness is the snapshot-then-verify core; the API sketch is `snapshot(db_path, out_dir, prefix)` returning the verified copy path. Compression, retention and restore stay caller-side, though stamp-based prune/latest helpers are a plausible second function.
+- notes: Promoted 2026-10-23 as `genekit.sqlite_snapshot` (py-v0.5.0); ripeness re-checked: all
+  four count — three `VACUUM INTO`, one online-backup variant, each verifying the copy.
+  `VACUUM INTO` and the backup API do the copying; what was admissible is the policy each
+  sighting hand-rolled around them — a read-only source open so a missing file is never created,
+  a destination that is never overwritten, verification of the copy rather than the source, and
+  a failed copy removed or set aside so retention never picks it. Shipped as `stamped_snapshot`,
+  `verified_snapshot`, `verify_sqlite`; `method` keeps the page-exact backup for evidence copies
+  and old SQLite. Compression, retention and restore stay caller-side.
+  - migrate: potd pending — pre-migration gate to call `stamped_snapshot`.
+  - migrate: quicknote pending — pre-migration gate to call `stamped_snapshot`; pin crosses py-v0.4.0.
+  - migrate: remake pending — snapshot helper and restore check to call `stamped_snapshot` and `verify_sqlite`.
+  - migrate: evertold pending — evidence copies to call `verified_snapshot` with `method="backup"`.
