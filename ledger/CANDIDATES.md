@@ -200,7 +200,9 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - potd/backend/src/potd/backoff.py:6-21 — 2026-10-17 — pure base*2**n capped, base and cap
     both parameters; used for a short in-request retry ladder that skips non-idempotent calls
     and for a per-item worker delay with a different cap per state.
-- notes: 2 sightings across 2 repos.
+  - potd/backend/src/potd/publish/job.py:486-546 — 2026-10-24 — reuses the in-repo base*2**n
+    capped helper for a feed-follower loop; warn-once/info-on-recovery transitions.
+- notes: 3 sightings across 2 repos. Not ripe: two of the three sightings are the same repo.
 
 ## atomic-write — write a small file so a reader never sees a half-written result
 - status: promoted (genekit.atomic_write, py-v0.4.0)
@@ -280,7 +282,15 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - language: python
 - sightings:
   - remove-the-bloat/src/remove_the_bloat/pipeline/plex.py:49-64,99-128 — 2026-09-25 — opener with proxies disabled and redirects refused; credential sent in a request header and scrubbed from every error message; transport, HTTP-status and decode errors normalised into one app exception raised without chaining; injectable fetch callable for tests.
-- notes: single sighting so far.
+  - MeadowLark/scripts/ffmpeg_pin.py:403-434 — 2026-11-07 — stdlib urllib GET returning raw bytes (JSON decoding left to the caller); https-only scheme guard, fixed timeout; optional bearer credential sent as an unredirected header so a redirect never forwards it; transport and HTTP-status errors normalised into one app exception raised without chaining; module-level seam monkeypatched by tests.
+- notes: second sighting differs on redirects (followed here, credential kept off the redirected request) and returns bytes rather than decoded JSON; a port would likely take a decode flag or return bytes plus a JSON helper.
+
+## verified-download — fetch a release archive over HTTPS, prove its SHA256, extract only named members
+- status: candidate
+- language: python
+- sightings:
+  - MeadowLark/scripts/ffmpeg_pin.py:454-492 — 2026-11-07 — whole body fetched through an injectable getter, hashed in fixed-size chunks while staged to a temp dir; digest compared case-insensitively and a mismatch raises naming both digests; zip members chosen by trailing path components, written by basename (never extractall) and moved into the destination only after every check passes.
+- notes: single sighting so far; the hash check and the safe member extraction would likely split into two functions.
 
 ## mapped-drive-unc — spell a Windows mapped-drive path by its UNC share root
 - status: candidate
@@ -294,14 +304,16 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - language: php
 - sightings:
   - diet/authPolicy.php:10-37 — 2026-10-10 — pure function; validates with the stdlib IP filter (rejects zone ids and padding), folds IPv4-mapped IPv6 to the IPv4 key, truncates other IPv6 to its /64 prefix via inet_pton/inet_ntop canonical text; invalid input yields null.
-- notes: single sighting so far. Python port would use the stdlib ipaddress module.
+  - potd/backend/src/potd/viewer/auth/ratelimit.py:121-150 — 2026-10-24 — stdlib ipaddress port: mapped IPv6 folds to IPv4, other IPv6 to its /64 network; invalid yields a fixed sentinel; used as a rate-limit bucket key.
+- notes: 2 sightings in 2 repos, not ripe. Python port uses the stdlib ipaddress module.
 
 ## split-token-persistent-login — remember-me cookie as selector + hashed validator with rotation grace
 - status: candidate
 - language: php
 - sightings:
   - diet/authPolicy.php:39-115 — 2026-10-10 — cookie is a lookup selector plus a random validator stored only as a SHA-256; pure decision function (expired / mismatch / rotate / ok) kept apart from the DB I/O; validator rotates at most daily with a short grace for the previous one; a wrong validator deletes the row as theft; idle and absolute lifetimes.
-- notes: single sighting so far; its cookie and DB I/O half sits in diet/auth.php:124-215. The
+  - potd/backend/src/potd/viewer/auth/sessions.py:150-460 — 2026-10-24 — Python/async port: pure decide() over a row snapshot (expired / revoked / rotate / grace / theft) kept apart from SQLAlchemy I/O; rotation only at one boot endpoint; previous validator honoured for a short grace; mismatch revokes as theft; idle and absolute lifetimes.
+- notes: 2 sightings in 2 repos, not ripe; its cookie and DB I/O half sits in diet/auth.php:124-215. The
   decision/I-O split is the reusable part; storage and cookie plumbing stay app-side.
 
 ## oauth-loopback-receiver — installed-app OAuth redirect receiver on a loopback socket
@@ -351,14 +363,16 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - sightings:
   - quicknote/backend/src/quicknote/app.py:39-66 — 2026-10-18 — catch-all path route registered after the API router; API-prefixed paths stay 404; resolve-then-is_relative_to containment before FileResponse; the shell is served with no-cache so a stale index never points at vanished hashed assets.
   - evertold/backend/src/evertold/main.py:248-290 — 2026-10-18 — standalone helper rather than a nested route; also catches ValueError/OSError from resolve and is_file (NUL bytes, over-long segments, revoked permissions) and answers 503 when the static root itself stops resolving.
-- notes: remake/backend/src/remake/app.py is a copy of the first sighting with the second's resolve guard folded in, so it is a consumer, not an independent sighting. API sketch: a function taking the app, the static root and the reserved API prefix.
+  - potd/backend/src/potd/viewer/spa.py:23-81 — 2026-10-26 — mounted by a function taking the app and static root; API prefix 404s before any filesystem access; resolve-then-is_relative_to containment with ValueError/OSError guards; no-cache shell, immutable cache for hashed asset paths.
+- notes: remake/backend/src/remake/app.py is a copy of the first sighting with the second's resolve guard folded in, so it is a consumer, not an independent sighting. API sketch: a function taking the app, the static root and the reserved API prefix. The potd sighting is a port of the second sighting's guard logic (adding the cache split), so it is a consumer, not independent: 2 independent sightings, still `candidate`.
 
 ## uuid7 — time-ordered version-7 UUID generator
 - status: candidate
 - language: python
 - sightings:
   - remake/backend/src/remake/makes/ids.py:15-32 — 2026-10-21 — hand-rolled because the stdlib `uuid` has no v7 before 3.14: 48-bit millisecond timestamp shifted over random bytes, then version and RFC 4122 variant bits forced; paired with a validator that parses and checks `.version == 7`.
-- notes: 1 of 3 sightings. A TypeScript twin exists in another app, which does not count toward a Python candidate. Revisit when the interpreter floor reaches a stdlib `uuid7`; promotion then reduces to the validator.
+  - potd/backend/src/potd/ids.py:11-22 — 2026-10-23 — hand-rolled v7 (stdlib uuid has none before 3.14): ms timestamp over random bits, version and variant forced; shared by an operator smoke command and a bulk importer.
+- notes: 2 of 3 sightings, 2 repos. A TypeScript twin exists in another app, which does not count toward a Python candidate. Revisit when the interpreter floor reaches a stdlib `uuid7`; promotion then reduces to the validator.
 
 ## sqlite-add-missing-columns — additive schema migration for a stdlib sqlite3 table
 - status: candidate
@@ -394,3 +408,17 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   - migrate: quicknote done 2026-10-23 at py-v0.5.0 — `stamped_snapshot` behind the app's own snapshot function, kept as the gate's test seam; pin moved up from py-v0.3.1. Accepted: a stamp collision raises FileExistsError, and a failed copy is removed.
   - migrate: remake done 2026-10-23 at py-v0.5.0 — `stamped_snapshot` behind the app's snapshot helper (signature kept), `verify_sqlite` in its restore check, the stamp-format constant re-exported for its retention code. Accepted: a stamp collision raises FileExistsError.
   - migrate: evertold done 2026-10-23 at py-v0.5.0 — `verified_snapshot` with method="backup", foreign-key check and keep_failed at both copy sites; `verify_sqlite` behind its (ok, detail) adapter. Accepted: a failed copy is kept as <name>.failed; a collision refuses instead of overwriting.
+
+## dotenv-merge — line-preserving dotenv compare and merge with per-key classification
+- status: candidate
+- language: python
+- sightings:
+  - potd/backend/src/potd/ops/envfile.py:55-232 — 2026-10-28 — line-preserving dotenv parse + per-key classification (added/changed/blanked/removed/owner-side) rendering names only; merged text keeps source layout, owner-side keys appended under a header
+- notes: Pure functions over text, no I/O; parse errors carry line numbers, never line text.
+
+## process-hard-deadline — kill the whole process if a one-shot run outlives a time budget
+- status: candidate
+- language: python
+- sightings:
+  - personal-agents/packages/agents-core/src/agents_core/scheduler/watchdog.py:221-260 — 2026-11-08 — `arm_hard_deadline`: daemon threading.Timer whose callback runs an optional on-expire hook (errors suppressed), flushes root logging handlers, then os._exit(1); returns the timer so the caller cancels on success; rejects non-positive budgets. Guards a cron-fired single-cycle CLI against a wedged browser.
+- notes: os._exit is deliberate (wedged threads block normal shutdown). API sketch: budget seconds + optional hook in, cancellable handle out; a context-manager form is the obvious generalization.
