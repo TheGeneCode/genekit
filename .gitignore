@@ -9,3 +9,6 @@ dist/
 
 # Local planning notes; machine- and app-specific, not for publication.
 docs/
+
+# Implementation plans; name private consumer repos and local paths, not for publication.
+plans/
