@@ -4,6 +4,21 @@
 
 - Nothing yet.
 
+## py-v0.6.0 — 2026-11-10
+
+### Added
+- **`genekit.backoff`** — capped exponential delay for a caller-owned retry loop. Promoted from
+  the `capped-backoff` ledger candidate (3 independent sightings across quicknote, potd and
+  personal-agents). One public symbol, `backoff_seconds(failures, *, base, cap) -> float`: seconds
+  to wait, `min(base * 2**failures, cap)`, with `failures` counted zero-based (the failures
+  *before* the one just seen, so `0` waits `base`), the cap always winning even when `base > cap`,
+  the exponent clamped so any counter is safe, and a negative `failures` or a negative, NaN or
+  infinite `base` / `cap` rejected with `ValueError`. No jitter, no `timedelta` twin — callers
+  keep their own loop, sleep and logging.
+
+  Fixes the recurring defects found across the sightings: `OverflowError` once a float-base
+  failure counter reached 1024, and a silent half-base delay for a negative count.
+
 ## py-v0.5.0 — 2026-10-23
 
 ### Added
