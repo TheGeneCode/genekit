@@ -10,5 +10,5 @@
 - `ledger/CANDIDATES.md` rules: CHARTER.md § Ledger hygiene, enforced by
   `python/tests/test_ledger_hygiene.py` — run it after any ledger edit.
 - No `uv add`: a runtime dependency is a charter change, not a code change.
-- Repo is public. Only `docs/` (gitignored) may name private repos — known defects go in
-  `docs/BACKLOG.md`.
+- Repo is public. Only `docs/` and `plans/` (both gitignored) may name private repos — known
+  defects go in `docs/BACKLOG.md`; finished plans move to `plans/complete/`.
