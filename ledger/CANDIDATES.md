@@ -191,7 +191,7 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
   sighting.
 
 ## capped-backoff — capped exponential backoff delay for a poll loop
-- status: candidate
+- status: promoted (genekit.backoff, py-v0.6.0)
 - language: python
 - sightings:
   - quicknote/backend/src/quicknote/tagger/worker.py:39-41 — 2026-09-16 — pure function
@@ -202,7 +202,11 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     and for a per-item worker delay with a different cap per state.
   - potd/backend/src/potd/publish/job.py:486-546 — 2026-10-24 — reuses the in-repo base*2**n
     capped helper for a feed-follower loop; warn-once/info-on-recovery transitions.
-- notes: 3 sightings across 2 repos. Not ripe: two of the three sightings are the same repo.
+  - personal-agents/packages/agents-core/src/agents_core/llm_queue/schema.py:91-94 — 2026-11-10 — pure base*2**(n-1) capped helper returning a timedelta; exponent clamped so huge attempt counts cannot build a giant int; schedules the next eligible time of a persisted retry row rather than sleeping in a loop.
+- notes: Promoted 2026-11-10 as `genekit.backoff` (py-v0.6.0). Counted: quicknote, potd and personal-agents; the later potd sighting calls the earlier one. The stdlib has no helper, and tenacity and backoff are retry-controller frameworks plus a hard dependency, while every sighting owns its loop and needs only the delay. What was admissible is the policy: a zero-based failure count, the cap winning even over the base, an exponent clamp so an unbounded stored counter never overflows, and negative or non-finite input rejected. Shipped as `backoff_seconds`, seconds only; a timedelta twin and jitter were dropped.
+  - migrate: quicknote pending — `backoff_seconds` behind the worker's own fixed-base helper.
+  - migrate: potd pending — import `backoff_seconds` directly at each caller; the local module goes.
+  - migrate: personal-agents pending — `backoff_seconds` inside the queue's attempt-based delay, which keeps its timedelta return.
 
 ## atomic-write — write a small file so a reader never sees a half-written result
 - status: promoted (genekit.atomic_write, py-v0.4.0)
@@ -422,3 +426,10 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - sightings:
   - personal-agents/packages/agents-core/src/agents_core/scheduler/watchdog.py:221-260 — 2026-11-08 — `arm_hard_deadline`: daemon threading.Timer whose callback runs an optional on-expire hook (errors suppressed), flushes root logging handlers, then os._exit(1); returns the timer so the caller cancels on success; rejects non-positive budgets. Guards a cron-fired single-cycle CLI against a wedged browser.
 - notes: os._exit is deliberate (wedged threads block normal shutdown). API sketch: budget seconds + optional hook in, cancellable handle out; a context-manager form is the obvious generalization.
+
+## sqlite-lease-queue — persistent job queue with leases, fencing and expiry on SQLite
+- status: candidate
+- language: python
+- sightings:
+  - personal-agents/packages/agents-core/src/agents_core/llm_queue/store.py:155-535 — 2026-11-10 — stdlib sqlite3 table unique per (namespace, dedupe key); each transition runs in BEGIN IMMEDIATE; lease = owner + expiry, attempt counted at lease time; complete/fail fenced on owner; expired leases requeued lazily at the next lease with capped backoff, dead after N attempts. Same-file named-lock table with TTL.
+- notes: API sketch: enqueue/lease/renew/complete/fail/release; aware-UTC fixed-width ISO text so SQL compares order correctly.
