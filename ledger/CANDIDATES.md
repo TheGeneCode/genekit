@@ -204,9 +204,9 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
     capped helper for a feed-follower loop; warn-once/info-on-recovery transitions.
   - personal-agents/packages/agents-core/src/agents_core/llm_queue/schema.py:91-94 — 2026-11-10 — pure base*2**(n-1) capped helper returning a timedelta; exponent clamped so huge attempt counts cannot build a giant int; schedules the next eligible time of a persisted retry row rather than sleeping in a loop.
 - notes: Promoted 2026-11-10 as `genekit.backoff` (py-v0.6.0). Counted: quicknote, potd and personal-agents; the later potd sighting calls the earlier one. The stdlib has no helper, and tenacity and backoff are retry-controller frameworks plus a hard dependency, while every sighting owns its loop and needs only the delay. What was admissible is the policy: a zero-based failure count, the cap winning even over the base, an exponent clamp so an unbounded stored counter never overflows, and negative or non-finite input rejected. Shipped as `backoff_seconds`, seconds only; a timedelta twin and jitter were dropped.
-  - migrate: quicknote pending — `backoff_seconds` behind the worker's own fixed-base helper.
-  - migrate: potd pending — import `backoff_seconds` directly at each caller; the local module goes.
-  - migrate: personal-agents pending — `backoff_seconds` inside the queue's attempt-based delay, which keeps its timedelta return.
+  - migrate: quicknote done 2026-11-10 at py-v0.6.0 — `backoff_seconds` behind the worker's own fixed-base helper, which keeps its name and signature. Accepted: a negative count now raises.
+  - migrate: potd done 2026-11-10 at py-v0.6.0 — `backoff_seconds` imported at each caller, no shim; the local module and its test are gone. Accepted: a negative count raises instead of halving the base.
+  - migrate: personal-agents done 2026-11-10 at py-v0.6.0 — `backoff_seconds` inside the queue's attempt-based delay, which keeps its timedelta return and 1-based count; its own exponent clamp is gone.
 
 ## atomic-write — write a small file so a reader never sees a half-written result
 - status: promoted (genekit.atomic_write, py-v0.4.0)
