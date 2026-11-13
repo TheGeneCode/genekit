@@ -433,3 +433,34 @@ function. Admission rules and the quality gate live in [../CHARTER.md](../CHARTE
 - sightings:
   - personal-agents/packages/agents-core/src/agents_core/llm_queue/store.py:155-535 — 2026-11-10 — stdlib sqlite3 table unique per (namespace, dedupe key); each transition runs in BEGIN IMMEDIATE; lease = owner + expiry, attempt counted at lease time; complete/fail fenced on owner; expired leases requeued lazily at the next lease with capped backoff, dead after N attempts. Same-file named-lock table with TTL.
 - notes: API sketch: enqueue/lease/renew/complete/fail/release; aware-UTC fixed-width ISO text so SQL compares order correctly.
+
+## fts5-user-query-fallback — pass user-typed text to an FTS5 MATCH without raising on plain-word punctuation
+- status: candidate
+- language: python
+- sightings:
+  - personal-agents/packages/agents-core/src/agents_core/sqlite_fts.py:4-55 — 2026-11-10 — classify the stdlib sqlite3 OperationalError text as a malformed-query error, retry once with every whitespace token as a quoted FTS5 string (inner quotes doubled); skip the retry when the query already uses phrase or column syntax.
+- notes: three small pure helpers; caller owns the execute/retry loop.
+
+
+## robust-baseline-stats — robust z-score and Poisson upper-tail helpers for "is this observation unusual for its own history"
+- status: candidate
+- language: python
+- sightings:
+  - personal-agents/apps/civic-watch/src/civic_watch/flags/stats.py:10-70 — 2026-11-11 — pure stdlib helpers: statistics.median, unscaled MAD, robust z with 0.6745 scaling returning None on zero spread, lgamma-based Poisson survival function clamped to [0, 1], nearest-rank percentile; callers pick the baseline window.
+- notes: Pure functions over float sequences. API sketch: mad, robust_z, poisson_sf, percentile; add-half smoothing of the rate stays caller-side.
+
+
+## log-first-only-filter — pass the first log record matching a message prefix, drop the repeats
+- status: candidate
+- language: python
+- sightings:
+  - personal-agents/apps/civic-watch/src/civic_watch/ingest/extract.py:30-49 — 2026-11-11 — stdlib logging.Filter subclass holding a prefix and a seen flag, attached to a third-party library emitting child logger to keep one copy of a per-object warning per process.
+- notes: Filter must sit on the emitting logger, not a parent. API sketch: FirstOnlyFilter(prefix).
+
+## strict-civil-date-parse — parse a strict YYYY-MM-DD string to zone-local midnight, rejecting overflow dates
+- status: candidate
+- language: php
+- sightings:
+  - personal-dashboard/app/Dashboard/Sources/GoogleHealthSource.php:301-311 — 2026-11-12 — static civilDate(): Carbon createFromFormat with a reset-fields format in a caller-named zone, then a format round trip so rolled-over dates (Feb 31) return null instead of the next month; catches the parse exception to null.
+  - personal-dashboard/app/Dashboard/Sources/StepsHistory/StepsHistoryConfig.php:188-197 — 2026-11-12 — static isDate(): same round-trip check but boolean only, no zone, used to validate config date lists.
+- notes: Same-repo sightings; needs a second repo. Python analogue would be date.fromisoformat plus a length/pattern guard, since fromisoformat accepts extended forms.
